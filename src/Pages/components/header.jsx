@@ -2,14 +2,14 @@ import React from "react";
 
 function Header() {
   return (
-    <header className="bg-blue-900  text-white p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Hotel Paradise</h1>
-        <nav className="space-x-4">
-          <a href="/" className="hover:underline">Home</a>
-          <a href="/" className="hover:underline">Rooms</a>
-          <a href="/about" className="hover:underline">Contact</a>
-          <a href="/login" className="hover:underline">Log in</a>
+    <header className="bg-[#1F1F1F] text-[#F5F5F5] shadow-md">
+      <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+        <h1 className="text-2xl font-bold tracking-wide">Four Seasons Hotel</h1>
+        <nav className="space-x-6">
+          <a href="/" className="hover:text-[#C5A880] transition duration-300">Home</a>
+          <a href="/rooms" className="hover:text-[#C5A880] transition duration-300">Rooms</a>
+          <a href="/contact" className="hover:text-[#C5A880] transition duration-300">Contact</a>
+          <a href="/login" className="hover:text-[#C5A880] transition duration-300">Log in</a>
         </nav>
       </div>
     </header>
