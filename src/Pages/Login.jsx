@@ -7,12 +7,12 @@ function Login() {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-blue-50">
+        <div className="flex items-center justify-center min-h-screen bg-[#F8F6F1]">
             <form
                 onSubmit={handleSubmit}
-                className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm"
+                className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-[#E0D8C3]"
             >
-                <h2 className="text-2xl font-bold text-blue-600 mb-6 text-center">Login</h2>
+                <h2 className="text-3xl font-semibold text-[#B89B5E] mb-6 text-center">Login</h2>
 
                 <div className="mb-4">
                     <label className="block text-gray-700 mb-1" htmlFor="username">
@@ -21,7 +21,7 @@ function Login() {
                     <input
                         id="username"
                         type="text"
-                        className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#C5A880]"
                         required
                     />
                 </div>
@@ -33,14 +33,14 @@ function Login() {
                     <input
                         id="password"
                         type="password"
-                        className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#C5A880]"
                         required
                     />
                 </div>
 
                 <button
                     type="submit"
-                    className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                    className="w-full bg-[#B89B5E] text-white py-2 rounded hover:bg-[#a0854d] transition"
                 >
                     Log In
                 </button>
