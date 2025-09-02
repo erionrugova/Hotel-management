@@ -1,4 +1,3 @@
-// src/Pages/Rooms.jsx
 import React from "react";
 import Header from "./components/header";
 import Footer from "./components/footer";
@@ -14,8 +13,8 @@ function Rooms() {
   const rooms = [
     {
       id: 1,
-      name: "Deluxe Room",
-      price: "$120/night",
+      name: "Single Sharing",
+      price: "$70/night",
       image: photo1,
       description:
         "Spacious room with king-size bed, balcony view, and modern amenities.",
@@ -29,9 +28,9 @@ function Rooms() {
     },
     {
       id: 2,
-      name: "Executive Suite",
-      price: "$200/night",
-      image: photo2,
+      name: "Double Sharing",
+      price: "$120/night",
+      image: photo6,
       description:
         "Spacious room with king-size bed, balcony view, and modern amenities.",
       amenities: [
@@ -44,8 +43,8 @@ function Rooms() {
     },
     {
       id: 3,
-      name: "Standard Room",
-      price: "$80/night",
+      name: "Triple Sharing",
+      price: "$150/night",
       image: photo3,
       description:
         "Spacious room with king-size bed, balcony view, and modern amenities.",
@@ -60,7 +59,7 @@ function Rooms() {
     {
       id: 4,
       name: "Family Suite",
-      price: "$150/night",
+      price: "$220/night",
       image: photo4,
       description:
         "Spacious room with king-size bed, balcony view, and modern amenities.",
@@ -75,7 +74,7 @@ function Rooms() {
     {
       id: 5,
       name: "Presidential Suite",
-      price: "$350/night",
+      price: "$300/night",
       image: photo5,
       description:
         "Spacious room with king-size bed, balcony view, and modern amenities.",
@@ -89,9 +88,9 @@ function Rooms() {
     },
     {
       id: 6,
-      name: "Budget Room",
-      price: "$60/night",
-      image: photo6,
+      name: "Deluxe Double",
+      price: "$180/night",
+      image: photo2,
       description:
         "Spacious room with king-size bed, balcony view, and modern amenities.",
       amenities: [
