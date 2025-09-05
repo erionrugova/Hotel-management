@@ -5,59 +5,67 @@ function RoomsDashboard() {
   const [rooms] = useState([
     {
       number: "#001",
-      bed: "Double sharing",
-      floor: "Floor 1",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
+      type: "Double Sharing",
+      capacity: "2",
+      bed_type: "Double",
+      bed_count: "1",
       status: "Available",
     },
     {
       number: "#002",
-      bed: "Single sharing",
-      floor: "Floor 1",
-      facility: "AC, shower, Single bed, towel, bathtub, TV",
+      type: "Single Sharing",
+      capacity: "1",
+      bed_type: "Single",
+      bed_count: "1",
       status: "Booked",
     },
     {
       number: "#003",
-      bed: "Presidential suite",
-      floor: "Floor 3",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
+      type: "Presidential Suite",
+      capacity: "5",
+      bed_type: "King",
+      bed_count: "1",
       status: "Booked",
     },
     {
       number: "#004",
-      bed: "Family suite",
-      floor: "Floor 2",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
+      type: "Family Suite",
+      capacity: "4",
+      bed_type: "Double",
+      bed_count: "2",
       status: "Reserved",
     },
     {
       number: "#005",
-      bed: "Triple bed",
-      floor: "Floor 1",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
+      type: "Triple Sharing",
+      capacity: "3",
+      bed_type: "Single",
+      bed_count: "3",
       status: "Reserved",
     },
     {
       number: "#006",
-      bed: "Deluxe Double",
-      floor: "Floor 1",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
+      type: "Deluxe Double",
+      capacity: "2",
+      bed_type: "Queen",
+      bed_count: "1",
       status: "Waitlist",
     },
     {
       number: "#007",
-      bed: "Family suite",
-      floor: "Floor 2",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
+      type: "Family Suite",
+      capacity: "4",
+      bed_type: "Double",
+      bed_count: "2",
       status: "Reserved",
     },
     {
       number: "#008",
-      bed: "Single bed",
-      floor: "Floor 1",
-      facility: "AC, shower, Double bed, towel, bathtub, TV",
-      status: "Blocked",
+      type: "Single Sharing",
+      capacity: "1",
+      bed_type: "Single",
+      bed_count: "1",
+      status: "Booked",
     },
   ]);
 
@@ -66,7 +74,6 @@ function RoomsDashboard() {
     Booked: "bg-red-100 text-red-800",
     Reserved: "bg-green-100 text-green-800",
     Waitlist: "bg-yellow-100 text-yellow-800",
-    Blocked: "bg-gray-200 text-gray-800",
   };
 
   return (
@@ -77,9 +84,10 @@ function RoomsDashboard() {
           <thead className="bg-gray-100">
             <tr>
               <th className="p-3">Room Number</th>
+              <th className="p-3">Room Type</th>
+              <th className="p-3">Capacity</th>
               <th className="p-3">Bed Type</th>
-              <th className="p-3">Floor</th>
-              <th className="p-3">Facilities</th>
+              <th className="p-3">Bed Count</th>
               <th className="p-3">Status</th>
             </tr>
           </thead>
@@ -87,9 +95,10 @@ function RoomsDashboard() {
             {rooms.map((room, i) => (
               <tr key={i} className="border-b">
                 <td className="p-3">{room.number}</td>
-                <td className="p-3">{room.bed}</td>
-                <td className="p-3">{room.floor}</td>
-                <td className="p-3">{room.facility}</td>
+                <td className="p-3">{room.type}</td>
+                <td className="p-3">{room.capacity}</td>
+                <td className="p-3">{room.bed_type}</td>
+                <td className="p-3">{room.bed_count}</td>
                 <td className="p-3">
                   <span
                     className={`px-3 py-1 rounded text-sm font-medium ${
