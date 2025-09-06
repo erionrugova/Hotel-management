@@ -1,14 +1,10 @@
 import React from "react";
-import Header from "./components/header";
-import Footer from "./components/footer";
 import hotelImg from "../Images/fourSeasons.webp";
 import { Bed, Wifi, WashingMachine, Tv, Coffee, Shield } from "lucide-react";
 
 function AboutUs() {
   return (
     <div>
-      <Header />
-
       {/* Hero Image */}
       <div className="relative w-full h-80 md:h-[400px]">
         <img
@@ -93,7 +89,6 @@ function AboutUs() {
           </p>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }
