@@ -1,6 +1,5 @@
+// src/Pages/Homepage.jsx
 import React from "react";
-import Header from "./components/header";
-import Footer from "./components/footer";
 import { Link } from "react-router-dom";
 import photoTop from "../Images/top.jpg";
 import photoLeft1 from "../Images/left1.jpg";
@@ -8,20 +7,32 @@ import photoLeft2 from "../Images/left2.jpg";
 import photo7 from "../Images/birk-enwald-znZXwcHdKwM-unsplash.jpg";
 import photo8 from "../Images/lily-banse--YHSwy6uqvk-unsplash.jpg";
 import photoConference from "../Images/meetings.jpg";
+
 function Homepage() {
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-
-      <div>
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <div className="relative">
         <img
           src={photoTop}
           alt="Luxury Room"
-          className="w-full h-[450px] object-cover"
+          className="w-full h-[500px] object-cover"
         />
+        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+          <div className="text-center text-white">
+            <h1 className="text-5xl font-bold mb-4">Four Seasons Hotel</h1>
+            <p className="text-xl mb-8">Luxury Redefined</p>
+            <Link
+              to="/rooms"
+              className="bg-[#B89B5E] text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-[#a0854d] transition duration-300"
+            >
+              Book Your Stay
+            </Link>
+          </div>
+        </div>
       </div>
 
-      <main className="flex-1 container mx-auto space-y-20 p-8 md:p-16 lg:p-24 xl:p-32">
+      <main className="container mx-auto space-y-20 p-8 md:p-16 lg:p-24 xl:p-32">
         {/* Room Preview Section */}
         <section className="grid md:grid-cols-2 gap-10 px-6 items-center">
           {/* Right side: Room description */}
@@ -49,7 +60,7 @@ function Homepage() {
 
             <Link
               to="/rooms"
-              className="mt-6 inline-block bg-[#C5A880] text-[#1F1F1F] px-4 py-2 rounded hover:bg-[#B9965D] transition duration-300"
+              className="mt-6 inline-block bg-[#B89B5E] text-white px-6 py-3 rounded-lg hover:bg-[#a0854d] transition duration-300 font-semibold"
             >
               Explore All Rooms
             </Link>
@@ -129,8 +140,6 @@ function Homepage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

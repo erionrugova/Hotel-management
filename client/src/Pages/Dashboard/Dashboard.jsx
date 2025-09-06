@@ -1,5 +1,8 @@
+// src/Pages/Dashboard/Dashboard.jsx
+import { useState, useEffect } from "react";
 import { useUser } from "../../UserContext";
 import { Card, CardContent } from "../../components/card";
+import apiService from "../../services/api";
 import {
   BarChart,
   Bar,
@@ -11,38 +14,87 @@ import {
 
 function Dashboard() {
   const { user } = useUser();
+  const [stats, setStats] = useState({
+    checkIn: 0,
+    checkOut: 0,
+    inHotel: 0,
+    availableRooms: 0,
+    occupiedRooms: 0,
+  });
+  const [rooms, setRooms] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fake data
-  const stats = {
-    checkIn: 23,
-    checkOut: 13,
-    inHotel: 60,
-    availableRooms: 10,
-    occupiedRooms: 90,
-  };
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [roomsData, bookingsData] = await Promise.all([
+          apiService.getRooms(),
+          apiService.getBookings(),
+        ]);
 
-  const rooms = [
-    { type: "Single sharing", booked: 2, total: 30, price: 70 },
-    { type: "Double sharing", booked: 2, total: 35, price: 120 },
-    { type: "Triple sharing", booked: 2, total: 25, price: 150 },
-    { type: "Deluxe Double", booked: 4, total: 10, price: 180 },
-    { type: "Family Suite", booked: 4, total: 10, price: 220 },
-    { type: "Presidential Suite", booked: 4, total: 10, price: 350 },
-  ];
+        // Calculate stats
+        const availableRooms = roomsData.filter(
+          (room) => room.status === "AVAILABLE"
+        ).length;
+        const occupiedRooms = roomsData.filter(
+          (room) => room.status === "OCCUPIED"
+        ).length;
 
-  const feedback = [
-    { name: "Mark", comment: "Food was great.", room: "001" },
-    {
-      name: "Christian",
-      comment: "Facilities were perfect for amount paid.",
-      room: "002",
-    },
-    {
-      name: "Alexander",
-      comment: "Room cleaning could be better.",
-      room: "003",
-    },
-  ];
+        const today = new Date().toISOString().split("T")[0];
+        const todayCheckIns = bookingsData.filter(
+          (booking) =>
+            booking.startDate.startsWith(today) &&
+            booking.status === "CONFIRMED"
+        ).length;
+        const todayCheckOuts = bookingsData.filter(
+          (booking) =>
+            booking.endDate.startsWith(today) && booking.status === "CONFIRMED"
+        ).length;
+        const inHotel = bookingsData.filter(
+          (booking) =>
+            booking.status === "CONFIRMED" &&
+            new Date(booking.startDate) <= new Date() &&
+            new Date(booking.endDate) > new Date()
+        ).length;
+
+        setStats({
+          checkIn: todayCheckIns,
+          checkOut: todayCheckOuts,
+          inHotel,
+          availableRooms,
+          occupiedRooms,
+        });
+
+        // Group rooms by type
+        const roomTypes = {};
+        roomsData.forEach((room) => {
+          if (!roomTypes[room.type]) {
+            roomTypes[room.type] = { total: 0, booked: 0, price: room.price };
+          }
+          roomTypes[room.type].total++;
+          if (room.status === "OCCUPIED") {
+            roomTypes[room.type].booked++;
+          }
+        });
+
+        setRooms(
+          Object.entries(roomTypes).map(([type, data]) => ({
+            type: type.replace("_", " "),
+            ...data,
+          }))
+        );
+
+        setBookings(bookingsData);
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const occupancyData = [
     { month: "May", percent: 100 },
@@ -57,14 +109,22 @@ function Dashboard() {
     { month: "Feb", percent: 92 },
   ];
 
+  if (loading) {
+    return (
+      <div className="p-8 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-semibold mb-6">
-        {user ? `Welcome back, ${user.name}` : "Dashboard"}
+        {user ? `Welcome back, ${user.username}` : "Dashboard"}
       </h1>
 
       {/* Overview */}
-      <div className="grid grid-cols-5 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <Card>
           <CardContent>
             <p className="text-gray-500">Today's Check-in</p>
@@ -98,8 +158,8 @@ function Dashboard() {
       </div>
 
       {/* Rooms */}
-      <h2 className="text-xl font-semibold mb-4">Rooms</h2>
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <h2 className="text-xl font-semibold mb-4">Room Types</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {rooms.map((room, i) => (
           <Card key={i}>
             <CardContent className="p-4">
@@ -107,7 +167,7 @@ function Dashboard() {
               <p>
                 {room.booked}/{room.total} booked
               </p>
-              <p className="text-blue-600 font-bold">${room.price}/day</p>
+              <p className="text-[#B89B5E] font-bold">${room.price}/day</p>
             </CardContent>
           </Card>
         ))}
@@ -121,22 +181,29 @@ function Dashboard() {
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip />
-            <Bar dataKey="percent" fill="#C5A880" />
+            <Bar dataKey="percent" fill="#B89B5E" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Feedback */}
-      <h2 className="text-xl font-semibold mb-4">Customer Feedback</h2>
+      {/* Recent Bookings */}
+      <h2 className="text-xl font-semibold mb-4">Recent Bookings</h2>
       <div className="bg-white shadow rounded p-4">
-        {feedback.map((f, i) => (
+        {bookings.slice(0, 5).map((booking, i) => (
           <div key={i} className="border-b py-2 last:border-b-0">
             <p className="font-semibold">
-              {f.name} ({f.room})
+              {booking.user.username} - Room {booking.room.roomNumber}
             </p>
-            <p className="text-gray-600">{f.comment}</p>
+            <p className="text-gray-600">
+              {new Date(booking.startDate).toLocaleDateString()} -{" "}
+              {new Date(booking.endDate).toLocaleDateString()}
+            </p>
+            <p className="text-sm text-gray-500">Status: {booking.status}</p>
           </div>
         ))}
+        {bookings.length === 0 && (
+          <p className="text-gray-500 text-center py-4">No bookings found</p>
+        )}
       </div>
     </div>
   );

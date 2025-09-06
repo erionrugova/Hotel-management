@@ -1,7 +1,7 @@
-import React from "react";
-import Header from "./components/header";
-import Footer from "./components/footer";
+// src/Pages/Rooms.jsx
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import apiService from "../services/api";
 import photo1 from "../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
 import photo3 from "../Images/room3.jpg";
@@ -9,140 +9,209 @@ import photo4 from "../Images/room4.jpg";
 import photo5 from "../Images/roberto-nickson-emqnSQwQQDo-unsplash.jpg";
 import photo6 from "../Images/natalia-gusakova-EYoK3eVKIiQ-unsplash.jpg";
 
+const roomImages = {
+  SINGLE: photo1,
+  DOUBLE: photo6,
+  SUITE: photo3,
+  DELUXE: photo2,
+};
+
+const roomDescriptions = {
+  SINGLE:
+    "Spacious room with a single bed, balcony view, and modern amenities.",
+  DOUBLE:
+    "Spacious room with a double bed, balcony view, and modern amenities.",
+  SUITE:
+    "Spacious room with king-size bed, balcony view, and modern amenities.",
+  DELUXE:
+    "Spacious room with queen-size bed, balcony view, and modern amenities.",
+};
+
+const roomAmenities = {
+  SINGLE: ["AC", "Shower", "Single bed", "Towel", "TV", "Balcony", "WiFi"],
+  DOUBLE: ["AC", "Shower", "Double bed", "Towel", "TV", "Balcony", "WiFi"],
+  SUITE: [
+    "AC",
+    "Shower",
+    "King-size bed",
+    "Towel",
+    "TV",
+    "Balcony",
+    "WiFi",
+    "Bathtub",
+    "Mini Bar",
+    "Room Service",
+  ],
+  DELUXE: ["AC", "Shower", "Queen-size bed", "Towel", "TV", "Balcony", "WiFi"],
+};
+
 function Rooms() {
-  const rooms = [
-    {
-      id: 1,
-      name: "Single Sharing",
-      price: "$70/night",
-      image: photo1,
-      description:
-        "Spacious room with a single bed, balcony view, and modern amenities.",
-      amenities: [
-        "AC",
-        "Shower",
-        "Single bed",
-        "Towel",
-        "TV",
-        "Balcony",
-        "WiFi",
-      ],
-    },
-    {
-      id: 2,
-      name: "Double Sharing",
-      price: "$120/night",
-      image: photo6,
-      description:
-        "Spacious room with a double bed, balcony view, and modern amenities.",
-      amenities: [
-        "AC",
-        "Shower",
-        "Double bed",
-        "Towel",
-        "TV",
-        "Balcony",
-        "WiFi",
-      ],
-    },
-    {
-      id: 3,
-      name: "Triple Sharing",
-      price: "$150/night",
-      image: photo3,
-      description:
-        "Spacious room with 3 single beds, balcony view, and modern amenities.",
-      amenities: [
-        "AC",
-        "Shower",
-        "3 Single beds",
-        "Towel",
-        "TV",
-        "Balcony",
-        "WiFi",
-      ],
-    },
-    {
-      id: 4,
-      name: "Family Suite",
-      price: "$220/night",
-      image: photo4,
-      description:
-        "Spacious room with 2 double beds, balcony view, and modern amenities.",
-      amenities: [
-        "AC",
-        "Shower",
-        " 2 Double bed",
-        "Towel",
-        "TV",
-        "Balcony",
-        "WiFi",
-      ],
-    },
-    {
-      id: 5,
-      name: "Presidential Suite",
-      price: "$300/night",
-      image: photo5,
-      description:
-        "Spacious room with king-size bed, balcony view, and modern amenities.",
-      amenities: [
-        "AC",
-        "Shower",
-        "King-size bed",
-        "Towel",
-        "TV",
-        "Balcony",
-        "WiFi",
-        "Bathtub",
-        "Mini Bar",
-        "Room Service",
-      ],
-    },
-    {
-      id: 6,
-      name: "Deluxe Double",
-      price: "$180/night",
-      image: photo2,
-      description:
-        "Spacious room with queen-size bed, balcony view, and modern amenities.",
-      amenities: [
-        "AC",
-        "Shower",
-        "Queen-size bed",
-        "Towel",
-        "TV",
-        "Balcony",
-        "WiFi",
-      ],
-    },
-  ];
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    type: "",
+    status: "",
+    minPrice: "",
+    maxPrice: "",
+  });
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const roomsData = await apiService.getRooms(filters);
+        setRooms(roomsData);
+      } catch (error) {
+        console.error("Failed to fetch rooms:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRooms();
+  }, [filters]);
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const getRoomImage = (roomType) => {
+    return roomImages[roomType] || photo1;
+  };
+
+  const getRoomDescription = (roomType) => {
+    return (
+      roomDescriptions[roomType] || "Comfortable room with modern amenities."
+    );
+  };
+
+  const getRoomAmenities = (roomType) => {
+    return roomAmenities[roomType] || ["AC", "Shower", "Towel", "TV", "WiFi"];
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading rooms...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-1 container mx-auto space-y-16 p-8 md:p-16 lg:p-24">
-        <h1 className="text-3xl font-semibold mb-6 text-[#C5A880]">
+    <div className="min-h-screen bg-gray-50">
+      <main className="container mx-auto space-y-8 p-8">
+        <h1 className="text-3xl font-semibold mb-6 text-[#B89B5E]">
           Our Rooms
         </h1>
-        <div className="grid md:grid-cols-3 gap-9">
+
+        {/* Filters */}
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h2 className="text-lg font-semibold mb-4">Filter Rooms</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Room Type
+              </label>
+              <select
+                name="type"
+                value={filters.type}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#B89B5E]"
+              >
+                <option value="">All Types</option>
+                <option value="SINGLE">Single</option>
+                <option value="DOUBLE">Double</option>
+                <option value="SUITE">Suite</option>
+                <option value="DELUXE">Deluxe</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                name="status"
+                value={filters.status}
+                onChange={handleFilterChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#B89B5E]"
+              >
+                <option value="">All Status</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="OCCUPIED">Occupied</option>
+                <option value="MAINTENANCE">Maintenance</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Min Price
+              </label>
+              <input
+                type="number"
+                name="minPrice"
+                value={filters.minPrice}
+                onChange={handleFilterChange}
+                placeholder="Min price"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#B89B5E]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Max Price
+              </label>
+              <input
+                type="number"
+                name="maxPrice"
+                value={filters.maxPrice}
+                onChange={handleFilterChange}
+                placeholder="Max price"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#B89B5E]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Rooms Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room) => (
             <div
               key={room.id}
-              className="border rounded-lg shadow-lg overflow-hidden"
+              className="bg-white border rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
             >
               <img
-                src={room.image}
-                alt={room.name}
+                src={getRoomImage(room.type)}
+                alt={room.type}
                 className="w-full h-48 object-cover"
               />
               <div className="p-4">
-                <h3 className="text-xl font-bold">{room.name}</h3>
-                <p className="text-gray-600">{room.price}</p>
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-xl font-bold">
+                    {room.type.replace("_", " ")}
+                  </h3>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      room.status === "AVAILABLE"
+                        ? "bg-green-100 text-green-800"
+                        : room.status === "OCCUPIED"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {room.status}
+                  </span>
+                </div>
+                <p className="text-gray-600 mb-2">Room #{room.roomNumber}</p>
+                <p className="text-[#B89B5E] font-bold text-lg">
+                  ${room.price}/night
+                </p>
+                <p className="text-gray-600 text-sm mt-2 mb-4">
+                  {getRoomDescription(room.type)}
+                </p>
                 <Link
                   to={`/rooms/${room.id}`}
-                  state={room}
-                  className="mt-6 inline-block bg-[#C5A880] text-[#1F1F1F] px-4 py-2 rounded hover:bg-[#B9965D] transition duration-300"
+                  className="inline-block bg-[#B89B5E] text-white px-4 py-2 rounded hover:bg-[#a0854d] transition duration-300"
                 >
                   View Details
                 </Link>
@@ -150,8 +219,15 @@ function Rooms() {
             </div>
           ))}
         </div>
+
+        {rooms.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500 text-lg">
+              No rooms found matching your criteria.
+            </p>
+          </div>
+        )}
       </main>
-      <Footer />
     </div>
   );
 }

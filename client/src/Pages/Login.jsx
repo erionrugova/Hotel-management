@@ -1,35 +1,38 @@
+// src/Pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../UserContext";
 
-const users = [
-  { username: "admin", password: "admin123", role: "admin" },
-  { username: "user", password: "12345", role: "user" },
-];
-
 function Login() {
-  const { setUser } = useUser();
+  const { login } = useUser();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const foundUser = users.find(
-      (u) => u.username === username && u.password === password
-    );
+    setError("");
+    setLoading(true);
 
-    if (foundUser) {
-      setUser({ name: foundUser.username, role: foundUser.role });
-      if (foundUser.role === "admin") {
+    const result = await login({ username, password });
+
+    if (result.success) {
+      // Redirect based on role
+      console.log("Login successful, user role:", result.user.role);
+      if (result.user.role === "ADMIN") {
+        console.log("Redirecting admin to dashboard");
         navigate("/dashboard");
       } else {
+        console.log("Redirecting user to homepage");
         navigate("/");
       }
     } else {
-      setError("Wrong username or password");
+      setError(result.error || "Login failed");
     }
+
+    setLoading(false);
   };
 
   return (
@@ -63,16 +66,25 @@ function Login() {
           <input
             id="password"
             type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#C5A880]"
             required
           />
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
         <button
           type="submit"
-          className="w-full bg-[#B89B5E] text-white py-2 rounded hover:bg-[#a0854d] transition"
+          disabled={loading}
+          className="w-full bg-[#B89B5E] text-white py-2 rounded hover:bg-[#a0854d] transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Log In
+          {loading ? "Logging in..." : "Log In"}
         </button>
       </form>
     </div>
