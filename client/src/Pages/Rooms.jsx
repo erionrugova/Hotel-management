@@ -2,47 +2,18 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import apiService from "../services/api";
+
+// keep your original fallback images by type, used only if DB has no image
 import photo1 from "../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
 import photo3 from "../Images/room3.jpg";
-import photo4 from "../Images/room4.jpg";
-import photo5 from "../Images/roberto-nickson-emqnSQwQQDo-unsplash.jpg";
 import photo6 from "../Images/natalia-gusakova-EYoK3eVKIiQ-unsplash.jpg";
 
-const roomImages = {
+const fallbackByType = {
   SINGLE: photo1,
   DOUBLE: photo6,
   SUITE: photo3,
   DELUXE: photo2,
-};
-
-const roomDescriptions = {
-  SINGLE:
-    "Spacious room with a single bed, balcony view, and modern amenities.",
-  DOUBLE:
-    "Spacious room with a double bed, balcony view, and modern amenities.",
-  SUITE:
-    "Spacious room with king-size bed, balcony view, and modern amenities.",
-  DELUXE:
-    "Spacious room with queen-size bed, balcony view, and modern amenities.",
-};
-
-const roomAmenities = {
-  SINGLE: ["AC", "Shower", "Single bed", "Towel", "TV", "Balcony", "WiFi"],
-  DOUBLE: ["AC", "Shower", "Double bed", "Towel", "TV", "Balcony", "WiFi"],
-  SUITE: [
-    "AC",
-    "Shower",
-    "King-size bed",
-    "Towel",
-    "TV",
-    "Balcony",
-    "WiFi",
-    "Bathtub",
-    "Mini Bar",
-    "Room Service",
-  ],
-  DELUXE: ["AC", "Shower", "Queen-size bed", "Towel", "TV", "Balcony", "WiFi"],
 };
 
 function Rooms() {
@@ -59,37 +30,29 @@ function Rooms() {
     const fetchRooms = async () => {
       try {
         const roomsData = await apiService.getRooms(filters);
-        setRooms(roomsData);
+        setRooms(roomsData || []);
       } catch (error) {
         console.error("Failed to fetch rooms:", error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchRooms();
   }, [filters]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  const getRoomImage = (roomType) => {
-    return roomImages[roomType] || photo1;
+  const getRoomImage = (room) => {
+    // prefer DB image; otherwise fall back to your original image-by-type
+    return room?.image || fallbackByType[room?.type] || photo1;
   };
 
-  const getRoomDescription = (roomType) => {
-    return (
-      roomDescriptions[roomType] || "Comfortable room with modern amenities."
-    );
-  };
-
-  const getRoomAmenities = (roomType) => {
-    return roomAmenities[roomType] || ["AC", "Shower", "Towel", "TV", "WiFi"];
+  const getRoomDescription = (room) => {
+    // prefer DB description; otherwise keep your original short default
+    return room?.description || "Comfortable room with modern amenities.";
   };
 
   if (loading) {
@@ -107,7 +70,7 @@ function Rooms() {
           Our Rooms
         </h1>
 
-        {/* Filters */}
+        {/* Filters (unchanged styling) */}
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Filter Rooms</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -142,6 +105,7 @@ function Rooms() {
                 <option value="AVAILABLE">Available</option>
                 <option value="OCCUPIED">Occupied</option>
                 <option value="MAINTENANCE">Maintenance</option>
+                <option value="OUT_OF_ORDER">Out of Order</option>
               </select>
             </div>
             <div>
@@ -173,7 +137,7 @@ function Rooms() {
           </div>
         </div>
 
-        {/* Rooms Grid */}
+        {/* Rooms Grid (same card styling) */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room) => (
             <div
@@ -181,14 +145,14 @@ function Rooms() {
               className="bg-white border rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
             >
               <img
-                src={getRoomImage(room.type)}
+                src={getRoomImage(room)}
                 alt={room.type}
                 className="w-full h-48 object-cover"
               />
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-xl font-bold">
-                    {room.type.replace("_", " ")}
+                    {room.type?.replace("_", " ")}
                   </h3>
                   <span
                     className={`px-2 py-1 text-xs rounded-full ${
@@ -207,7 +171,7 @@ function Rooms() {
                   ${room.price}/night
                 </p>
                 <p className="text-gray-600 text-sm mt-2 mb-4">
-                  {getRoomDescription(room.type)}
+                  {getRoomDescription(room)}
                 </p>
                 <Link
                   to={`/rooms/${room.id}`}

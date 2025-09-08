@@ -48,3 +48,5 @@ The client connects to the backend API at `http://localhost:3000/api` and includ
 - Tailwind CSS
 - Recharts (for dashboard charts)
 - Custom API service layer
+
+## docker exec -it hotel-mysql mysql -u hotel_user -p

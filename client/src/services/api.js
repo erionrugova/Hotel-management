@@ -22,10 +22,21 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+
+      // Try to parse JSON even on non-2xx, so we can surface server messages
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        // no-op: response had no JSON body
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        const msg =
+          (data && (data.error || data.message)) ||
+          (Array.isArray(data?.errors) && data.errors[0]?.msg) ||
+          `HTTP error! status: ${response.status}`;
+        throw new Error(msg);
       }
 
       return data;
@@ -35,104 +46,106 @@ class ApiService {
     }
   }
 
-  // Auth endpoints
-  async login(credentials) {
+  // ----------------- Auth endpoints -----------------
+  login(credentials) {
     return this.request("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
   }
 
-  async register(userData) {
+  register(userData) {
     return this.request("/auth/register", {
       method: "POST",
       body: JSON.stringify(userData),
     });
   }
 
-  // User endpoints
-  async getUsers() {
+  // ----------------- User endpoints -----------------
+  getUsers() {
     return this.request("/users");
   }
 
-  async getUser(id) {
+  getUser(id) {
     return this.request(`/users/${id}`);
   }
 
-  async updateUser(id, userData) {
+  updateUser(id, userData) {
     return this.request(`/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(userData),
     });
   }
 
-  async deleteUser(id) {
+  deleteUser(id) {
     return this.request(`/users/${id}`, {
       method: "DELETE",
     });
   }
 
-  // Room endpoints
-  async getRooms(filters = {}) {
-    const queryParams = new URLSearchParams(filters).toString();
-    return this.request(`/rooms${queryParams ? `?${queryParams}` : ""}`);
+  // ----------------- Room endpoints -----------------
+  getRooms(filters = {}) {
+    const query = new URLSearchParams(filters).toString();
+    return this.request(`/rooms${query ? `?${query}` : ""}`);
   }
 
-  async getRoom(id) {
+  getRoom(id) {
     return this.request(`/rooms/${id}`);
   }
 
-  async createRoom(roomData) {
+  createRoom(roomData) {
     return this.request("/rooms", {
       method: "POST",
       body: JSON.stringify(roomData),
     });
   }
 
-  async updateRoom(id, roomData) {
+  updateRoom(id, roomData) {
     return this.request(`/rooms/${id}`, {
       method: "PUT",
       body: JSON.stringify(roomData),
     });
   }
 
-  async deleteRoom(id) {
+  deleteRoom(id) {
     return this.request(`/rooms/${id}`, {
       method: "DELETE",
     });
   }
 
-  // Booking endpoints
-  async getBookings(filters = {}) {
-    const queryParams = new URLSearchParams(filters).toString();
-    return this.request(`/bookings${queryParams ? `?${queryParams}` : ""}`);
+  // ----------------- Booking endpoints -----------------
+  getBookings(filters = {}) {
+    const query = new URLSearchParams(filters).toString();
+    return this.request(`/bookings${query ? `?${query}` : ""}`);
   }
 
-  async getBooking(id) {
+  getBooking(id) {
     return this.request(`/bookings/${id}`);
   }
 
-  async createBooking(bookingData) {
+  // Create a booking via /bookings (your current backend route)
+  createBooking(bookingData) {
+    // expects: { roomId, startDate, endDate, ...optional customer fields }
     return this.request("/bookings", {
       method: "POST",
       body: JSON.stringify(bookingData),
     });
   }
 
-  async updateBookingStatus(id, status) {
+  updateBookingStatus(id, status) {
     return this.request(`/bookings/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
   }
 
-  async cancelBooking(id) {
+  cancelBooking(id) {
     return this.request(`/bookings/${id}/cancel`, {
       method: "PATCH",
     });
   }
 
-  async deleteBooking(id) {
+  deleteBooking(id) {
     return this.request(`/bookings/${id}`, {
       method: "DELETE",
     });
