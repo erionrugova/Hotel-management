@@ -1,224 +1,111 @@
-import { useState } from "react";
+// src/Pages/Dashboard/Guests.jsx
+import { useEffect, useState } from "react";
+import apiService from "../../services/api";
 
 function Guests() {
-  const [filter, setFilter] = useState("checkin"); // checkin or checkout
+  const [guests, setGuests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // Sample guest names
-  const guestNames = [
-    "Alexander",
-    "Almira",
-    "Jona",
-    "Pegasus",
-    "Martin",
-    "Cecil",
-    "Luke",
-    "Kiand",
-    "Turen",
-    "Yadrin",
-    "Sophia",
-    "Michael",
-    "Olivia",
-    "Noah",
-    "Emma",
-    "Liam",
-    "Ava",
-  ];
-
-  const statuses = ["Clean", "Dirty", "Pick up", "Inspected"];
-  const types = ["checkin", "checkout"];
-
-  // Generate guests dynamically
-  const guests = guestNames.map((name, index) => {
-    const roomNumber = String(index + 1).padStart(3, "0"); // 001, 002, 003...
-    const total = Math.floor(Math.random() * 500) + 100; // between 400–2400
-    const paid = Math.floor(total * (Math.random() * 0.8 + 0.2)); // 20–100% paid
-    return {
-      id: `#${5000 + index}`,
-      name,
-      room: roomNumber,
-      total,
-      paid,
-      status: statuses[Math.floor(Math.random() * statuses.length)],
-      type: types[Math.floor(Math.random() * types.length)],
+  useEffect(() => {
+    const fetchGuests = async () => {
+      try {
+        const data = await apiService.getGuests();
+        setGuests(data);
+      } catch (err) {
+        console.error("Failed to fetch guests:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-  });
 
-  const statusColors = {
-    Clean: "bg-blue-100 text-blue-600",
-    Dirty: "bg-red-100 text-red-600",
-    "Pick up": "bg-yellow-100 text-yellow-600",
-    Inspected: "bg-green-100 text-green-600",
-  };
+    fetchGuests();
+  }, []);
 
-  // Filtering
+  // Filtering logic
   const filteredGuests = guests.filter((g) => {
-    const matchesType = g.type === filter;
     const matchesSearch =
-      g.room.toLowerCase().includes(search.toLowerCase()) ||
-      g.name.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === "All" ? true : g.status === statusFilter;
-    return matchesType && matchesSearch && matchesStatus;
+      g.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      (g.email && g.email.toLowerCase().includes(search.toLowerCase()));
+
+    const matchesStatus = statusFilter === "ALL" || g.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
-  // Pagination
-  const guestsPerPage = 5;
-  const totalPages = Math.ceil(filteredGuests.length / guestsPerPage);
-  const startIndex = (currentPage - 1) * guestsPerPage;
-  const paginatedGuests = filteredGuests.slice(
-    startIndex,
-    startIndex + guestsPerPage
-  );
-
-  const changePage = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
+  if (loading) {
+    return <div className="p-6">Loading guests...</div>;
+  }
 
   return (
-    <div>
+    <div className="p-6">
       <h2 className="text-2xl font-semibold mb-6">Guests</h2>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <button
-          onClick={() => {
-            setFilter("checkin");
-            setCurrentPage(1);
-          }}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "checkin"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100 text-gray-700"
-          }`}
-        >
-          Check in
-        </button>
-        <button
-          onClick={() => {
-            setFilter("checkout");
-            setCurrentPage(1);
-          }}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "checkout"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100 text-gray-700"
-          }`}
-        >
-          Check out
-        </button>
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <input
+          type="text"
+          placeholder="Search by name or email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 px-3 py-2 border rounded-md"
+        />
 
-        {/* Search + Filter */}
-        <div className="ml-auto flex gap-2 items-center">
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="border rounded-lg px-3 py-2"
-          >
-            <option value="All">All Status</option>
-            <option value="Clean">Clean</option>
-            <option value="Dirty">Dirty</option>
-            <option value="Pick up">Pick up</option>
-            <option value="Inspected">Inspected</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Search by room or name"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="border rounded-lg px-3 py-2"
-          />
-        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border rounded-md"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="Reserved">Reserved</option>
+          <option value="PENDING">Pending</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="CANCELLED">Cancelled</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3">Reservation ID</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Room Number</th>
-              <th className="p-3">Total amount</th>
-              <th className="p-3">Amount paid</th>
-              <th className="p-3">Status</th>
+      {/* Guests Table */}
+      <div className="bg-white shadow-md rounded-lg p-4 overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-2 border">Name</th>
+              <th className="p-2 border">Email</th>
+              <th className="p-2 border">Room</th>
+              <th className="p-2 border">Check-In</th>
+              <th className="p-2 border">Check-Out</th>
+              <th className="p-2 border">Status</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedGuests.length > 0 ? (
-              paginatedGuests.map((g, i) => (
-                <tr key={i} className="border-b">
-                  <td className="p-3">{g.id}</td>
-                  <td className="p-3">{g.name}</td>
-                  <td className="p-3">{g.room}</td>
-                  <td className="p-3">${g.total}</td>
-                  <td className="p-3">${g.paid}</td>
-                  <td className="p-3">
-                    <span
-                      className={`px-3 py-1 text-sm rounded-full ${
-                        statusColors[g.status]
-                      }`}
-                    >
-                      {g.status}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            ) : (
+            {filteredGuests.length === 0 && (
               <tr>
-                <td colSpan="6" className="text-center p-4 text-gray-500">
-                  No guests found
+                <td colSpan={6} className="text-center p-3 text-gray-500">
+                  No guests found.
                 </td>
               </tr>
             )}
+            {filteredGuests.map((g) => (
+              <tr key={g.id} className="border-b hover:bg-gray-50">
+                <td className="p-2 border">{g.fullName}</td>
+                <td className="p-2 border">{g.email || "-"}</td>
+                <td className="p-2 border">{g.booking.room?.roomNumber}</td>
+                <td className="p-2 border">
+                  {new Date(g.booking.startDate).toLocaleDateString()}
+                </td>
+                <td className="p-2 border">
+                  {new Date(g.booking.endDate).toLocaleDateString()}
+                </td>
+                <td className="p-2 border">{g.status}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-4">
-          <button
-            onClick={() => changePage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-4 py-2 rounded-lg border text-gray-500 disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <div className="flex gap-2">
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => changePage(i + 1)}
-                className={`px-3 py-1 rounded ${
-                  currentPage === i + 1
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => changePage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="px-4 py-2 rounded-lg border text-gray-700 disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   );
 }

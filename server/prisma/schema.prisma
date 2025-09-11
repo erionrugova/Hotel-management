@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output = "./node_modules.nosync/@prisma/client"
 }
 
 datasource db {
@@ -20,6 +21,20 @@ model User {
   @@map("users")
 }
 
+model Guest {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  email     String?
+  bookingId Int
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  roomId    Int?
+  room      Room?    @relation(fields: [roomId], references: [id])
+  status    String   @default("Reserved")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
 model Room {
   id          Int              @id @default(autoincrement())
   roomNumber  String           @unique
@@ -30,7 +45,11 @@ model Room {
   updatedAt   DateTime         @updatedAt
   description String?          @db.Text
   bookings    Booking[]
+  rates       rates[]
   features    RoomFeatureMap[]
+
+  // 👇 Opposite relation
+  guests Guest[]
 
   @@map("rooms")
 }
@@ -50,6 +69,9 @@ model Booking {
   paymentType       bookings_paymentType?
   room              Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 👇 Opposite relation
+  guests Guest[]
 
   @@index([roomId], map: "bookings_roomId_fkey")
   @@index([userId], map: "bookings_userId_fkey")
@@ -87,6 +109,31 @@ model RoomTypeFeature {
   @@map("room_type_features")
 }
 
+model deals {
+  id        Int            @id @default(autoincrement())
+  name      String
+  discount  Int
+  status    deals_status?  @default(ONGOING)
+  endDate   DateTime?      @db.Date
+  roomType  deals_roomType
+  createdAt DateTime?      @default(now()) @db.Timestamp(0)
+  updatedAt DateTime?      @default(now()) @db.Timestamp(0)
+}
+
+model rates {
+  id           Int          @id @default(autoincrement())
+  roomId       Int
+  policy       rates_policy
+  rate         Decimal      @db.Decimal(10, 2)
+  dealPrice    Decimal?     @db.Decimal(10, 2)
+  availability Int
+  createdAt    DateTime?    @default(now()) @db.Timestamp(0)
+  updatedAt    DateTime?    @default(now()) @db.Timestamp(0)
+  rooms        Room         @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "rates_ibfk_1")
+
+  @@index([roomId], map: "roomId")
+}
+
 enum Role {
   ADMIN
   MANAGER
@@ -118,4 +165,23 @@ enum bookings_paymentType {
   CARD
   CASH
   PAYPAL
+}
+
+enum rates_policy {
+  STRICT
+  FLEXIBLE
+  NON_REFUNDABLE
+}
+
+enum deals_status {
+  ONGOING
+  FULL
+  INACTIVE
+}
+
+enum deals_roomType {
+  SINGLE
+  DOUBLE
+  SUITE
+  DELUXE
 }

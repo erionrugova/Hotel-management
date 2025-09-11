@@ -16,7 +16,6 @@ router.get("/", async (req, res) => {
 
     const where = {};
 
-    // Regular users can only see their own bookings
     if (req.user.role === "USER") {
       where.userId = req.user.id;
     } else if (userId) {
@@ -45,12 +44,14 @@ router.get("/", async (req, res) => {
             status: true,
           },
         },
+        guests: true, // 👈 include guests
       },
       orderBy: { createdAt: "desc" },
     });
 
     res.json(bookings);
   } catch (error) {
+    console.error("Error fetching bookings:", error);
     res.status(500).json({ error: "Failed to fetch bookings" });
   }
 });
@@ -73,12 +74,11 @@ router.get("/:id", async (req, res) => {
             status: true,
           },
         },
+        guests: true, // 👈 include guests
       },
     });
 
     if (!booking) return res.status(404).json({ error: "Booking not found" });
-
-    // Regular users can only view their own bookings
     if (req.user.role === "USER" && booking.userId !== req.user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
@@ -89,7 +89,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create booking  (UPDATED)
+// Create booking
 router.post(
   "/",
   [
@@ -122,32 +122,26 @@ router.post(
       } = req.body;
       const userId = req.user.id;
 
-      // Validate dates
       const start = new Date(startDate);
       const end = new Date(endDate);
       const now = new Date();
 
-      if (start <= now) {
+      if (start <= now)
         return res
           .status(400)
           .json({ error: "Start date must be in the future" });
-      }
-      if (end <= start) {
+      if (end <= start)
         return res
           .status(400)
           .json({ error: "End date must be after start date" });
-      }
 
-      // Check room exists & availability
       const room = await prisma.room.findUnique({
         where: { id: parseInt(roomId) },
       });
       if (!room) return res.status(404).json({ error: "Room not found" });
-      if (room.status !== "AVAILABLE") {
+      if (room.status !== "AVAILABLE")
         return res.status(400).json({ error: "Room is not available" });
-      }
 
-      // Check overlapping bookings
       const overlappingBooking = await prisma.booking.findFirst({
         where: {
           roomId: parseInt(roomId),
@@ -167,7 +161,6 @@ router.post(
           .json({ error: "Room is already booked for this period" });
       }
 
-      // Create booking with new fields
       const booking = await prisma.booking.create({
         data: {
           userId,
@@ -194,16 +187,35 @@ router.post(
         },
       });
 
+      // 👇 NEW: Create or update Guest
+      await prisma.guest.upsert({
+        where: { bookingId: booking.id },
+        update: {
+          fullName: `${customerFirstName} ${customerLastName}`,
+          email: customerEmail,
+          roomId: booking.roomId,
+          status: "Reserved",
+        },
+        create: {
+          fullName: `${customerFirstName} ${customerLastName}`,
+          email: customerEmail,
+          roomId: booking.roomId,
+          bookingId: booking.id,
+          status: "Reserved",
+        },
+      });
+
       res
         .status(201)
         .json({ message: "Booking created successfully", booking });
     } catch (error) {
+      console.error("Error creating booking:", error);
       res.status(500).json({ error: "Failed to create booking" });
     }
   }
 );
 
-// Update booking status (Admin/Manager only)
+// Update booking status
 router.patch(
   "/:id/status",
   authorize("ADMIN", "MANAGER"),
@@ -238,7 +250,6 @@ router.patch(
         },
       });
 
-      // Update room status when status changes
       if (status === "CONFIRMED") {
         await prisma.room.update({
           where: { id: booking.roomId },
@@ -270,16 +281,13 @@ router.patch("/:id/cancel", async (req, res) => {
     });
     if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-    // Only owner (USER) or staff can cancel
     if (req.user.role === "USER" && booking.userId !== req.user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
-    if (booking.status === "CANCELLED") {
+    if (booking.status === "CANCELLED")
       return res.status(400).json({ error: "Booking is already cancelled" });
-    }
-    if (booking.status === "COMPLETED") {
+    if (booking.status === "COMPLETED")
       return res.status(400).json({ error: "Cannot cancel completed booking" });
-    }
 
     const updatedBooking = await prisma.booking.update({
       where: { id: bookingId },
@@ -312,7 +320,7 @@ router.patch("/:id/cancel", async (req, res) => {
   }
 });
 
-// Delete booking (Admin only)
+// Delete booking
 router.delete("/:id", authorize("ADMIN"), async (req, res) => {
   try {
     const bookingId = parseInt(req.params.id);
@@ -322,6 +330,42 @@ router.delete("/:id", authorize("ADMIN"), async (req, res) => {
     if (error.code === "P2025")
       return res.status(404).json({ error: "Booking not found" });
     res.status(500).json({ error: "Failed to delete booking" });
+  }
+});
+
+// Guests endpoint
+router.get("/guests", async (req, res) => {
+  try {
+    const guests = await prisma.guest.findMany({
+      include: {
+        room: { select: { id: true, roomNumber: true, type: true } },
+        booking: {
+          select: {
+            startDate: true,
+            endDate: true,
+            paymentType: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = guests.map((g) => ({
+      id: g.id,
+      name: g.fullName,
+      email: g.email || "-",
+      room: g.room?.roomNumber,
+      status: g.booking?.status,
+      checkIn: g.booking?.startDate,
+      checkOut: g.booking?.endDate,
+      payment: g.booking?.paymentType || "N/A",
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error("Error fetching guests:", err);
+    res.status(500).json({ error: "Failed to fetch guests" });
   }
 });
 

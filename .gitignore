@@ -2,7 +2,11 @@
 # Dependencies
 # -------------------------
 node_modules/
+node_modules
 node_modules.nosync/
+client/node_modules.nosync
+server/node_modules.nosync
+
 .pnp
 .pnp.js
 
@@ -56,3 +60,5 @@ client/build/
 # -------------------------
 server/node_modules/
 server/dist/
+
+.prisma-client/

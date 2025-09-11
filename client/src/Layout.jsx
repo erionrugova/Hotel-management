@@ -21,6 +21,7 @@ function Layout() {
     { name: "Rooms", path: "/dashboard/roomsDashboard" },
     { name: "Deals", path: "/dashboard/deals" },
     { name: "Rate", path: "/dashboard/rate" },
+    { name: "DashboardSidebar", path: "/dashboard/dashboardSidebar" },
   ];
 
   const handleLogout = () => {

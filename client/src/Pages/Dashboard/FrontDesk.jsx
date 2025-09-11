@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+// src/Pages/Dashboard/FrontDesk.jsx
+import { useEffect, useState } from "react";
 import moment from "moment";
 import Timeline from "react-calendar-timeline";
 import "react-calendar-timeline/dist/style.css";
 import BookingModal from "./BookingModal";
+import apiService from "../../services/api";
 
 // Utility: color by status
 const statusColor = (checkInISO, checkOutISO) => {
@@ -10,68 +12,77 @@ const statusColor = (checkInISO, checkOutISO) => {
   const ci = moment(checkInISO);
   const co = moment(checkOutISO);
 
-  if (today.isBefore(ci, "day")) return "#facc15"; // yellow: due in
-  if (today.isSame(co, "day")) return "#ef4444"; // red: due out
-  if (today.isAfter(co, "day")) return "#3b82f6"; // blue: checked out
-  if (today.isBetween(ci, co, "day", "[]")) return "#4ade80"; // green: checked in
-  return "#4ade80";
+  if (today.isBefore(ci, "day")) return "#facc15"; // yellow: future booking
+  if (today.isSame(co, "day")) return "#ef4444"; // red: due out today
+  if (today.isAfter(co, "day")) return "#3b82f6"; // blue: already checked out
+  if (today.isBetween(ci, co, "day", "[]")) return "#4ade80"; // green: active
+  return "#9ca3af"; // default gray
 };
 
 function FrontDesk() {
-  // Rooms (groups)
-  const groups = useMemo(
-    () => [
-      { id: 1, title: "Room 001" },
-      { id: 2, title: "Room 002" },
-      { id: 3, title: "Room 003" },
-      { id: 4, title: "Room 004" },
-      { id: 5, title: "Room 005" },
-    ],
-    []
-  );
-
-  // Bookings (items) from localStorage
-  const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem("bookings");
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  const [groups, setGroups] = useState([]); // rooms
+  const [items, setItems] = useState([]); // bookings
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // Persist whenever items change
+  // Load rooms & bookings
   useEffect(() => {
-    localStorage.setItem("bookings", JSON.stringify(items));
-  }, [items]);
+    const fetchData = async () => {
+      try {
+        const [roomsRes, bookingsRes] = await Promise.all([
+          apiService.getRooms(),
+          apiService.getBookings(),
+        ]);
 
-  // Build timeline items with styles
-  const timelineItems = useMemo(
-    () =>
-      items.map((b) => ({
-        id: b.id,
-        group: b.group, // must match groups[].id
-        title: b.guestName,
-        start_time: moment(b.checkIn),
-        end_time: moment(b.checkOut),
-        itemProps: {
-          style: {
-            background: statusColor(b.checkIn, b.checkOut),
-            color: "#fff",
-            borderRadius: 6,
-            textAlign: "center",
-          },
-        },
-      })),
-    [items]
-  );
+        // Rooms -> timeline groups
+        setGroups(
+          roomsRes.map((r) => ({
+            id: r.id,
+            title: `Room ${r.roomNumber}`,
+          }))
+        );
 
-  // Create
+        // Bookings -> timeline items
+        setItems(
+          bookingsRes.map((b) => ({
+            id: b.id,
+            group: b.roomId,
+            title: `${b.customerFirstName || ""} ${
+              b.customerLastName || ""
+            }`.trim(),
+            start_time: moment(b.startDate),
+            end_time: moment(b.endDate),
+            customerFirstName: b.customerFirstName,
+            customerLastName: b.customerLastName,
+            customerEmail: b.customerEmail,
+            paymentType: b.paymentType,
+            checkIn: b.startDate,
+            checkOut: b.endDate,
+            room: b.room.roomNumber,
+            itemProps: {
+              style: {
+                background: statusColor(b.startDate, b.endDate),
+                color: "#fff",
+                borderRadius: 6,
+                textAlign: "center",
+              },
+            },
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load front desk data", err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Modal open
   const openCreate = () => {
     setEditing(null);
     setIsModalOpen(true);
   };
 
-  // Edit
   const openEdit = (id) => {
     const found = items.find((b) => b.id === id);
     if (found) {
@@ -80,27 +91,58 @@ function FrontDesk() {
     }
   };
 
-  // Save (create or update)
-  const handleSave = (booking) => {
-    if (booking.id && items.some((b) => b.id === booking.id)) {
-      // update existing
-      setItems((prev) =>
-        prev.map((item) => (item.id === booking.id ? booking : item))
-      );
-    } else {
-      // create new
-      const newBooking = {
-        ...booking,
-        id: Date.now(), // unique id
-      };
-      setItems((prev) => [...prev, newBooking]);
+  // Save booking (create or update)
+  const handleSave = async (booking) => {
+    try {
+      let saved;
+      if (editing) {
+        saved = await apiService.updateBooking(editing.id, booking);
+        setItems((prev) =>
+          prev.map((i) => (i.id === editing.id ? { ...i, ...saved } : i))
+        );
+      } else {
+        saved = await apiService.createBooking(booking);
+        setItems((prev) => [
+          ...prev,
+          {
+            id: saved.id,
+            group: saved.roomId,
+            title: `${saved.customerFirstName} ${saved.customerLastName}`,
+            start_time: moment(saved.startDate),
+            end_time: moment(saved.endDate),
+            customerFirstName: saved.customerFirstName,
+            customerLastName: saved.customerLastName,
+            customerEmail: saved.customerEmail,
+            paymentType: saved.paymentType,
+            checkIn: saved.startDate,
+            checkOut: saved.endDate,
+            room: saved.room.roomNumber,
+            itemProps: {
+              style: {
+                background: statusColor(saved.startDate, saved.endDate),
+                color: "#fff",
+                borderRadius: 6,
+                textAlign: "center",
+              },
+            },
+          },
+        ]);
+      }
+    } catch (err) {
+      console.error("Failed to save booking", err);
     }
-    setIsModalOpen(false); // close modal after save
+    setIsModalOpen(false);
+    setEditing(null);
   };
 
-  // Delete
-  const handleDelete = (id) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  // Delete booking
+  const handleDelete = async (id) => {
+    try {
+      await apiService.deleteBooking(id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    } catch (err) {
+      console.error("Failed to delete booking", err);
+    }
   };
 
   return (
@@ -133,10 +175,10 @@ function FrontDesk() {
       </div>
 
       {/* Timeline */}
-      <div>
+      <div className="mb-8">
         <Timeline
           groups={groups}
-          items={timelineItems}
+          items={items}
           defaultTimeStart={moment().add(-1, "month")}
           defaultTimeEnd={moment().add(1, "month")}
           lineHeight={48}
@@ -145,40 +187,43 @@ function FrontDesk() {
         />
       </div>
 
-      {/* Bookings List with Edit/Delete */}
-      <div className="mt-8 bg-white shadow-md rounded-lg p-4">
+      {/* Bookings List */}
+      <div className="bg-white shadow-md rounded-lg p-4">
         <h3 className="text-lg font-semibold mb-4">Bookings List</h3>
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 text-left">
               <th className="p-2 border">Guest</th>
+              <th className="p-2 border">Email</th>
               <th className="p-2 border">Room</th>
               <th className="p-2 border">Check-In</th>
               <th className="p-2 border">Check-Out</th>
+              <th className="p-2 border">Payment</th>
               <th className="p-2 border">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td className="p-3 border text-gray-500" colSpan={5}>
-                  No bookings yet.
+                <td colSpan={7} className="text-center p-3 text-gray-500">
+                  No bookings found.
                 </td>
               </tr>
             )}
             {items.map((b) => (
               <tr key={b.id} className="border-b hover:bg-gray-50">
-                <td className="p-2 border">{b.guestName}</td>
                 <td className="p-2 border">
-                  {groups.find((g) => g.id === b.group)?.title ||
-                    `Room ${b.group}`}
+                  {b.customerFirstName} {b.customerLastName}
                 </td>
+                <td className="p-2 border">{b.customerEmail}</td>
+                <td className="p-2 border">{b.room}</td>
                 <td className="p-2 border">
                   {moment(b.checkIn).format("YYYY-MM-DD")}
                 </td>
                 <td className="p-2 border">
                   {moment(b.checkOut).format("YYYY-MM-DD")}
                 </td>
+                <td className="p-2 border">{b.paymentType}</td>
                 <td className="p-2 border">
                   <div className="flex gap-2">
                     <button

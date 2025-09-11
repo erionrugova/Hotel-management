@@ -3,13 +3,17 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import pkg from "@prisma/client";
+const { PrismaClient } = pkg;
 
 // Import routes
 import userRoutes from "./routes/userRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import rateRoutes from "./routes/rateRoutes.js";
+import dealRoutes from "./routes/dealRoutes.js";
+import guestRoutes from "./routes/guestRoutes.js";
 
 // Import middleware
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -34,6 +38,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/rates", rateRoutes);
+app.use("/api/deals", dealRoutes);
+app.use("/api/guests", guestRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {

@@ -1,87 +1,62 @@
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+// src/Pages/Dashboard/BookingModal.jsx
+import { useState, useEffect } from "react";
 
-function BookingModal({ isOpen, onClose, onSave, booking, groups = [] }) {
-  const [formData, setFormData] = useState({
-    guestName: "",
-    room: "",
-    checkIn: "",
-    checkOut: "",
+function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
+  const [form, setForm] = useState({
+    roomId: "",
+    startDate: "",
+    endDate: "",
+    customerFirstName: "",
+    customerLastName: "",
+    customerEmail: "",
+    paymentType: "CARD",
   });
 
-  // Prefill for edit, reset for create
   useEffect(() => {
-    if (!isOpen) return;
     if (booking) {
-      setFormData({
-        guestName: booking.guestName || "",
-        room: String(booking.group ?? booking.room ?? ""),
-        checkIn: booking.checkIn
-          ? new Date(booking.checkIn).toISOString().slice(0, 10)
-          : "",
-        checkOut: booking.checkOut
-          ? new Date(booking.checkOut).toISOString().slice(0, 10)
-          : "",
+      setForm({
+        roomId: booking.group,
+        startDate: booking.checkIn?.slice(0, 10),
+        endDate: booking.checkOut?.slice(0, 10),
+        customerFirstName: booking.customerFirstName || "",
+        customerLastName: booking.customerLastName || "",
+        customerEmail: booking.customerEmail || "",
+        paymentType: booking.paymentType || "CARD",
       });
-    } else {
-      setFormData({ guestName: "", room: "", checkIn: "", checkOut: "" });
     }
-  }, [isOpen, booking]);
+  }, [booking]);
 
-  const handleChange = (e) =>
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const payload = {
-      id: booking?.id ?? Date.now(),
-      guestName: formData.guestName.trim(),
-      group: Number(formData.room),
-      checkIn: new Date(formData.checkIn).toISOString(),
-      checkOut: new Date(formData.checkOut).toISOString(),
-    };
-    onSave(payload);
-    onClose();
+    onSave(form);
   };
 
   if (!isOpen) return null;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
-      style={{ zIndex: 9999 }}
-    >
-      <div
-        className="bg-white rounded-xl shadow-xl p-6 w-[420px] max-w-[90vw]"
-        style={{ zIndex: 10000 }}
-      >
-        <h3 className="text-xl font-semibold mb-4">
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
+        <h2 className="text-xl font-semibold mb-4">
           {booking ? "Edit Booking" : "Create Booking"}
-        </h3>
+        </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Room Select */}
           <div>
-            <label className="block text-sm font-medium mb-1">Guest name</label>
-            <input
-              type="text"
-              name="guestName"
-              value={formData.guestName}
-              onChange={handleChange}
-              className="w-full border rounded-lg p-2"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Room</label>
+            <label className="block text-sm font-medium">Room</label>
             <select
-              name="room"
-              value={formData.room}
+              name="roomId"
+              value={form.roomId}
               onChange={handleChange}
-              className="w-full border rounded-lg p-2"
+              className="mt-1 block w-full border rounded p-2"
               required
             >
-              <option value="">Select room</option>
+              <option value="">Select a room</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title}
@@ -90,52 +65,103 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups = [] }) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Check-in</label>
+              <label className="block text-sm font-medium">Check-in</label>
               <input
                 type="date"
-                name="checkIn"
-                value={formData.checkIn}
+                name="startDate"
+                value={form.startDate}
                 onChange={handleChange}
-                className="w-full border rounded-lg p-2"
+                className="mt-1 block w-full border rounded p-2"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Check-out
-              </label>
+              <label className="block text-sm font-medium">Check-out</label>
               <input
                 type="date"
-                name="checkOut"
-                value={formData.checkOut}
+                name="endDate"
+                value={form.endDate}
                 onChange={handleChange}
-                className="w-full border rounded-lg p-2"
+                className="mt-1 block w-full border rounded p-2"
                 required
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          {/* Guest Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium">First Name</label>
+              <input
+                type="text"
+                name="customerFirstName"
+                value={form.customerFirstName}
+                onChange={handleChange}
+                className="mt-1 block w-full border rounded p-2"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Last Name</label>
+              <input
+                type="text"
+                name="customerLastName"
+                value={form.customerLastName}
+                onChange={handleChange}
+                className="mt-1 block w-full border rounded p-2"
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input
+              type="email"
+              name="customerEmail"
+              value={form.customerEmail}
+              onChange={handleChange}
+              className="mt-1 block w-full border rounded p-2"
+              required
+            />
+          </div>
+
+          {/* Payment */}
+          <div>
+            <label className="block text-sm font-medium">Payment Type</label>
+            <select
+              name="paymentType"
+              value={form.paymentType}
+              onChange={handleChange}
+              className="mt-1 block w-full border rounded p-2"
+            >
+              <option value="CARD">Card</option>
+              <option value="CASH">Cash</option>
+              <option value="PAYPAL">PayPal</option>
+            </select>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
-              className="px-4 py-2 rounded-lg border"
               onClick={onClose}
+              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              {booking ? "Save changes" : "Save"}
+              Save
             </button>
           </div>
         </form>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 

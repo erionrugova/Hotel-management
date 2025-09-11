@@ -46,6 +46,51 @@ class ApiService {
     }
   }
 
+  // Rate endpoints
+  async getRates() {
+    return this.request("/rates");
+  }
+  async createRate(data) {
+    return this.request("/rates", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+  async updateRate(id, data) {
+    return this.request(`/rates/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+  async deleteRate(id) {
+    return this.request(`/rates/${id}`, { method: "DELETE" });
+  }
+
+  // Deal endpoints
+  async getDeals() {
+    return this.request("/deals");
+  }
+  async createDeal(data) {
+    return this.request("/deals", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+  async updateDeal(id, data) {
+    return this.request(`/deals/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+  async deleteDeal(id) {
+    return this.request(`/deals/${id}`, { method: "DELETE" });
+  }
+
+  // Guests
+  async getGuests() {
+    return this.request("/guests");
+  }
+
   // ----------------- Auth endpoints -----------------
   login(credentials) {
     return this.request("/auth/login", {
