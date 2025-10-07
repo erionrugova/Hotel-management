@@ -1,41 +1,75 @@
-// server/src/routes/guestRoutes.js
 import express from "express";
 import { prisma } from "../server.js";
 import { authenticateToken, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
-
-// Auth required
 router.use(authenticateToken);
 
-// Get all guests (Admins/Managers see all, Users see their guests only)
+// ----------------- GET all guests -----------------
 router.get("/", async (req, res) => {
   try {
-    const where = {};
-    if (req.user.role === "USER") {
-      // Only show guests linked to user's bookings
-      where.booking = { userId: req.user.id };
-    }
-
     const guests = await prisma.guest.findMany({
-      where,
       include: {
-        booking: {
-          select: {
-            startDate: true,
-            endDate: true,
-            room: { select: { roomNumber: true, type: true } },
-          },
-        },
+        room: { select: { roomNumber: true, type: true } },
+        booking: { include: { deal: true } },
+        deal: true,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    res.json(guests);
+    const enriched = guests.map((g) => ({
+      ...g,
+      currentStatus: g.booking?.status || g.status,
+      finalPrice: g.finalPrice || g.booking?.finalPrice,
+      paymentStatus: g.paymentStatus || g.booking?.paymentStatus,
+      deal: g.deal || g.booking?.deal || null,
+    }));
+
+    res.json(enriched);
   } catch (err) {
-    console.error("Failed to fetch guests:", err);
+    console.error("Error fetching guests:", err);
     res.status(500).json({ error: "Failed to fetch guests" });
   }
 });
+
+// ----------------- UPDATE guest status -----------------
+router.patch(
+  "/:id/status",
+  authorize("ADMIN", "MANAGER", "RECEPTIONIST"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, paymentStatus } = req.body;
+
+      const updateData = {};
+      if (status) updateData.status = status;
+      if (paymentStatus) updateData.paymentStatus = paymentStatus;
+
+      const updated = await prisma.guest.update({
+        where: { id: parseInt(id) },
+        data: updateData,
+        include: { booking: true, deal: true },
+      });
+
+      // 🔑 Sync booking status + payment if linked
+      if (updated.bookingId) {
+        await prisma.booking.update({
+          where: { id: updated.bookingId },
+          data: {
+            status: status || updated.booking.status,
+            paymentStatus: paymentStatus || updated.booking.paymentStatus,
+          },
+        });
+      }
+
+      res.json({ message: "Guest + booking updated", guest: updated });
+    } catch (err) {
+      console.error("Error updating guest:", err);
+      if (err.code === "P2025")
+        return res.status(404).json({ error: "Guest not found" });
+      res.status(500).json({ error: "Failed to update guest" });
+    }
+  }
+);
 
 export default router;

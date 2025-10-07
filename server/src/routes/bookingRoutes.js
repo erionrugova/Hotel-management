@@ -1,116 +1,196 @@
-// src/routes/bookingRoutes.js
 import express from "express";
-import { body, validationResult } from "express-validator";
 import { prisma } from "../server.js";
 import { authenticateToken, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Apply authentication to all routes
-router.use(authenticateToken);
-
-// Get all bookings
-router.get("/", async (req, res) => {
-  try {
-    const { status, userId, roomId, startDate, endDate } = req.query;
-
-    const where = {};
-
-    if (req.user.role === "USER") {
-      where.userId = req.user.id;
-    } else if (userId) {
-      where.userId = parseInt(userId);
-    }
-
-    if (status) where.status = status;
-    if (roomId) where.roomId = parseInt(roomId);
-
-    if (startDate || endDate) {
-      where.startDate = {};
-      if (startDate) where.startDate.gte = new Date(startDate);
-      if (endDate) where.startDate.lte = new Date(endDate);
-    }
-
-    const bookings = await prisma.booking.findMany({
-      where,
-      include: {
-        user: { select: { id: true, username: true, role: true } },
-        room: {
-          select: {
-            id: true,
-            roomNumber: true,
-            type: true,
-            price: true,
-            status: true,
-          },
-        },
-        guests: true, // 👈 include guests
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    res.json(bookings);
-  } catch (error) {
-    console.error("Error fetching bookings:", error);
-    res.status(500).json({ error: "Failed to fetch bookings" });
-  }
-});
-
-// Get booking by ID
+// ----------------- PUBLIC ROUTES -----------------
 router.get("/:id", async (req, res) => {
   try {
     const bookingId = parseInt(req.params.id);
-
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        user: { select: { id: true, username: true, role: true } },
-        room: {
-          select: {
-            id: true,
-            roomNumber: true,
-            type: true,
-            price: true,
-            status: true,
-          },
-        },
-        guests: true, // 👈 include guests
+        room: true,
+        user: { select: { id: true, username: true } },
+        deal: true,
+        guests: true,
       },
     });
 
     if (!booking) return res.status(404).json({ error: "Booking not found" });
-    if (req.user.role === "USER" && booking.userId !== req.user.id) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
     res.json(booking);
-  } catch (error) {
+  } catch (err) {
+    console.error("Error fetching booking:", err);
     res.status(500).json({ error: "Failed to fetch booking" });
   }
 });
 
-// Create booking
-router.post(
+// ----------------- ADMIN / MANAGER ROUTES -----------------
+router.get(
   "/",
-  [
-    body("roomId").isInt().withMessage("Room ID must be a number"),
-    body("startDate")
-      .isISO8601()
-      .withMessage("Start date must be a valid date"),
-    body("endDate").isISO8601().withMessage("End date must be a valid date"),
-    body("customerFirstName").notEmpty().withMessage("First name is required"),
-    body("customerLastName").notEmpty().withMessage("Last name is required"),
-    body("customerEmail").isEmail().withMessage("Valid email is required"),
-    body("paymentType")
-      .isIn(["CARD", "CASH", "PAYPAL"])
-      .withMessage("Invalid payment type"),
-  ],
+  authenticateToken,
+  authorize("ADMIN", "MANAGER"),
   async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty())
-        return res.status(400).json({ errors: errors.array() });
+      const bookings = await prisma.booking.findMany({
+        include: {
+          room: {
+            select: {
+              id: true,
+              roomNumber: true,
+              type: true,
+              capacity: true,
+              price: true,
+            },
+          },
+          user: { select: { id: true, username: true, role: true } },
+          deal: {
+            select: { id: true, name: true, discount: true, status: true },
+          },
+          guests: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              status: true,
+              paymentStatus: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
 
+      const cleaned = bookings.map((b) => ({
+        ...b,
+        guests: Array.isArray(b.guests) ? b.guests : [],
+        room: b.room || {
+          id: null,
+          roomNumber: "—",
+          type: "UNKNOWN",
+          capacity: 1,
+          price: 0,
+        },
+      }));
+
+      res.json(cleaned);
+    } catch (err) {
+      console.error("❌ Error fetching bookings:", err);
+      res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  }
+);
+
+// ----------------- CREATE BOOKING -----------------
+router.post("/", authenticateToken, async (req, res) => {
+  try {
+    const {
+      roomId,
+      startDate,
+      endDate,
+      customerFirstName,
+      customerLastName,
+      customerEmail,
+      paymentType,
+      dealId,
+    } = req.body;
+
+    if (!roomId || !startDate || !endDate)
+      return res
+        .status(400)
+        .json({ error: "roomId, startDate, and endDate are required" });
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end <= start)
+      return res
+        .status(400)
+        .json({ error: "End date must be after start date" });
+
+    const room = await prisma.room.findUnique({
+      where: { id: parseInt(roomId, 10) },
+    });
+    if (!room) return res.status(404).json({ error: "Room not found" });
+
+    // Overlap check
+    const overlap = await prisma.booking.findFirst({
+      where: {
+        roomId: parseInt(roomId, 10),
+        status: { in: ["PENDING", "CONFIRMED"] },
+        NOT: [{ endDate: { lt: start } }, { startDate: { gt: end } }],
+      },
+    });
+
+    if (overlap)
+      return res
+        .status(400)
+        .json({ error: "Room is already booked on these dates" });
+
+    const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    let pricePerNight = parseFloat(room.price);
+
+    if (dealId) {
+      const appliedDeal = await prisma.deal.findUnique({
+        where: { id: parseInt(dealId, 10) },
+      });
+      if (
+        appliedDeal &&
+        appliedDeal.status === "ONGOING" &&
+        (appliedDeal.roomType === "ALL" || appliedDeal.roomType === room.type)
+      ) {
+        pricePerNight -= (pricePerNight * appliedDeal.discount) / 100;
+      }
+    }
+
+    const finalPrice = pricePerNight * nights;
+
+    const newBooking = await prisma.booking.create({
+      data: {
+        roomId: parseInt(roomId, 10),
+        userId: req.user.userId,
+        startDate: start,
+        endDate: end,
+        customerFirstName,
+        customerLastName,
+        customerEmail,
+        paymentType,
+        paymentStatus: "PENDING",
+        baseRate: room.price,
+        finalPrice,
+        dealId: dealId ? parseInt(dealId, 10) : null,
+        status: "PENDING",
+      },
+      include: { room: true, deal: true },
+    });
+
+    await prisma.guest.create({
+      data: {
+        fullName: `${customerFirstName} ${customerLastName}`,
+        email: customerEmail,
+        bookingId: newBooking.id,
+        roomId: parseInt(roomId, 10),
+        status: "PENDING",
+        paymentStatus: "PENDING",
+        finalPrice,
+        dealId: dealId ? parseInt(dealId, 10) : null,
+      },
+    });
+
+    res.status(201).json(newBooking);
+  } catch (err) {
+    console.error("Error creating booking:", err);
+    res.status(500).json({ error: "Failed to create booking" });
+  }
+});
+
+// ----------------- PATCH: UPDATE BOOKING -----------------
+router.patch(
+  "/:id",
+  authenticateToken,
+  authorize("ADMIN", "MANAGER"),
+  async (req, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
       const {
         roomId,
         startDate,
@@ -119,254 +199,72 @@ router.post(
         customerLastName,
         customerEmail,
         paymentType,
+        status,
       } = req.body;
-      const userId = req.user.id;
 
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const now = new Date();
-
-      if (start <= now)
-        return res
-          .status(400)
-          .json({ error: "Start date must be in the future" });
-      if (end <= start)
-        return res
-          .status(400)
-          .json({ error: "End date must be after start date" });
-
-      const room = await prisma.room.findUnique({
-        where: { id: parseInt(roomId) },
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
       });
-      if (!room) return res.status(404).json({ error: "Room not found" });
-      if (room.status !== "AVAILABLE")
-        return res.status(400).json({ error: "Room is not available" });
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-      const overlappingBooking = await prisma.booking.findFirst({
+      const newRoomId = roomId ? parseInt(roomId, 10) : booking.roomId;
+      const newStart = startDate ? new Date(startDate) : booking.startDate;
+      const newEnd = endDate ? new Date(endDate) : booking.endDate;
+
+      // Optional overlap check only when dates or room change
+      const overlap = await prisma.booking.findFirst({
         where: {
-          roomId: parseInt(roomId),
+          roomId: newRoomId,
+          id: { not: bookingId },
           status: { in: ["PENDING", "CONFIRMED"] },
-          OR: [
-            {
-              AND: [{ startDate: { lte: start } }, { endDate: { gt: start } }],
-            },
-            { AND: [{ startDate: { lt: end } }, { endDate: { gte: end } }] },
-            { AND: [{ startDate: { gte: start } }, { endDate: { lte: end } }] },
-          ],
+          NOT: [{ endDate: { lt: newStart } }, { startDate: { gt: newEnd } }],
         },
       });
-      if (overlappingBooking) {
+
+      if (overlap)
         return res
           .status(400)
-          .json({ error: "Room is already booked for this period" });
-      }
+          .json({ error: "Room is already booked on these dates" });
 
-      const booking = await prisma.booking.create({
+      const updated = await prisma.booking.update({
+        where: { id: bookingId },
         data: {
-          userId,
-          roomId: parseInt(roomId),
-          startDate: start,
-          endDate: end,
-          status: "PENDING",
-          customerFirstName,
-          customerLastName,
-          customerEmail,
-          paymentType,
+          roomId: newRoomId,
+          startDate: newStart,
+          endDate: newEnd,
+          customerFirstName: customerFirstName ?? booking.customerFirstName,
+          customerLastName: customerLastName ?? booking.customerLastName,
+          customerEmail: customerEmail ?? booking.customerEmail,
+          paymentType: paymentType ?? booking.paymentType,
+          status: status ?? booking.status,
         },
-        include: {
-          user: { select: { id: true, username: true, role: true } },
-          room: {
-            select: {
-              id: true,
-              roomNumber: true,
-              type: true,
-              price: true,
-              status: true,
-            },
-          },
-        },
+        include: { room: true },
       });
 
-      // 👇 NEW: Create or update Guest
-      await prisma.guest.upsert({
-        where: { bookingId: booking.id },
-        update: {
-          fullName: `${customerFirstName} ${customerLastName}`,
-          email: customerEmail,
-          roomId: booking.roomId,
-          status: "Reserved",
-        },
-        create: {
-          fullName: `${customerFirstName} ${customerLastName}`,
-          email: customerEmail,
-          roomId: booking.roomId,
-          bookingId: booking.id,
-          status: "Reserved",
-        },
-      });
-
-      res
-        .status(201)
-        .json({ message: "Booking created successfully", booking });
-    } catch (error) {
-      console.error("Error creating booking:", error);
-      res.status(500).json({ error: "Failed to create booking" });
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating booking:", err);
+      res.status(500).json({ error: "Failed to update booking" });
     }
   }
 );
 
-// Update booking status
-router.patch(
-  "/:id/status",
+// ----------------- DELETE BOOKING -----------------
+router.delete(
+  "/:id",
+  authenticateToken,
   authorize("ADMIN", "MANAGER"),
-  [
-    body("status")
-      .isIn(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"])
-      .withMessage("Invalid status"),
-  ],
   async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty())
-        return res.status(400).json({ errors: errors.array() });
-
       const bookingId = parseInt(req.params.id);
-      const { status } = req.body;
-
-      const booking = await prisma.booking.update({
-        where: { id: bookingId },
-        data: { status },
-        include: {
-          user: { select: { id: true, username: true, role: true } },
-          room: {
-            select: {
-              id: true,
-              roomNumber: true,
-              type: true,
-              price: true,
-              status: true,
-            },
-          },
-        },
-      });
-
-      if (status === "CONFIRMED") {
-        await prisma.room.update({
-          where: { id: booking.roomId },
-          data: { status: "OCCUPIED" },
-        });
-      } else if (status === "CANCELLED" || status === "COMPLETED") {
-        await prisma.room.update({
-          where: { id: booking.roomId },
-          data: { status: "AVAILABLE" },
-        });
-      }
-
-      res.json({ message: "Booking status updated successfully", booking });
-    } catch (error) {
-      if (error.code === "P2025")
-        return res.status(404).json({ error: "Booking not found" });
-      res.status(500).json({ error: "Failed to update booking status" });
+      await prisma.guest.deleteMany({ where: { bookingId } });
+      await prisma.booking.delete({ where: { id: bookingId } });
+      res.json({ message: "Booking deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting booking:", err);
+      res.status(500).json({ error: "Failed to delete booking" });
     }
   }
 );
-
-// Cancel booking
-router.patch("/:id/cancel", async (req, res) => {
-  try {
-    const bookingId = parseInt(req.params.id);
-
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-    });
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
-
-    if (req.user.role === "USER" && booking.userId !== req.user.id) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-    if (booking.status === "CANCELLED")
-      return res.status(400).json({ error: "Booking is already cancelled" });
-    if (booking.status === "COMPLETED")
-      return res.status(400).json({ error: "Cannot cancel completed booking" });
-
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: "CANCELLED" },
-      include: {
-        user: { select: { id: true, username: true, role: true } },
-        room: {
-          select: {
-            id: true,
-            roomNumber: true,
-            type: true,
-            price: true,
-            status: true,
-          },
-        },
-      },
-    });
-
-    await prisma.room.update({
-      where: { id: booking.roomId },
-      data: { status: "AVAILABLE" },
-    });
-
-    res.json({
-      message: "Booking cancelled successfully",
-      booking: updatedBooking,
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to cancel booking" });
-  }
-});
-
-// Delete booking
-router.delete("/:id", authorize("ADMIN"), async (req, res) => {
-  try {
-    const bookingId = parseInt(req.params.id);
-    await prisma.booking.delete({ where: { id: bookingId } });
-    res.json({ message: "Booking deleted successfully" });
-  } catch (error) {
-    if (error.code === "P2025")
-      return res.status(404).json({ error: "Booking not found" });
-    res.status(500).json({ error: "Failed to delete booking" });
-  }
-});
-
-// Guests endpoint
-router.get("/guests", async (req, res) => {
-  try {
-    const guests = await prisma.guest.findMany({
-      include: {
-        room: { select: { id: true, roomNumber: true, type: true } },
-        booking: {
-          select: {
-            startDate: true,
-            endDate: true,
-            paymentType: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const formatted = guests.map((g) => ({
-      id: g.id,
-      name: g.fullName,
-      email: g.email || "-",
-      room: g.room?.roomNumber,
-      status: g.booking?.status,
-      checkIn: g.booking?.startDate,
-      checkOut: g.booking?.endDate,
-      payment: g.booking?.paymentType || "N/A",
-    }));
-
-    res.json(formatted);
-  } catch (err) {
-    console.error("Error fetching guests:", err);
-    res.status(500).json({ error: "Failed to fetch guests" });
-  }
-});
 
 export default router;

@@ -5,146 +5,217 @@ import bcrypt from "bcryptjs";
 
 export const prisma = new PrismaClient();
 
-async function main() {
-  console.log("🌱 Starting database seed...");
+// Default room data with lowercase features
+const defaultRoomData = {
+  SINGLE: {
+    description: "Cozy single room with WiFi, workspace, and private bathroom.",
+    features: ["wifi", "workspace", "private bathroom"],
+    price: 80.0,
+  },
+  DOUBLE: {
+    description:
+      "Comfortable double room perfect for two guests, with WiFi and TV.",
+    features: ["wifi", "tv", "balcony"],
+    price: 120.0,
+  },
+  SUITE: {
+    description:
+      "Luxury suite with a living area, king bed, and premium amenities.",
+    features: ["wifi", "king bed", "lounge area", "mini bar"],
+    price: 200.0,
+  },
+  DELUXE: {
+    description: "Elegant deluxe room with balcony, workspace, and city view.",
+    features: ["wifi", "workspace", "balcony", "city view"],
+    price: 300.0,
+  },
+};
 
-  // Clear existing data
-  await prisma.booking.deleteMany();
-  await prisma.room.deleteMany();
-  await prisma.user.deleteMany();
-
-  // Create users
+async function createUsers() {
   const hashedPassword = await bcrypt.hash("password123", 12);
 
-  const admin = await prisma.user.create({
-    data: {
-      username: "admin",
-      password: hashedPassword,
-      role: "ADMIN",
-    },
-  });
+  const users = [
+    { username: "admin", role: "ADMIN" },
+    { username: "manager", role: "MANAGER" },
+    { username: "john_doe", role: "USER" },
+    { username: "jane_smith", role: "USER" },
+  ];
 
-  const manager = await prisma.user.create({
-    data: {
-      username: "manager",
-      password: hashedPassword,
-      role: "MANAGER",
-    },
-  });
+  for (const u of users) {
+    await prisma.user.upsert({
+      where: { username: u.username },
+      update: {},
+      create: {
+        username: u.username,
+        password: hashedPassword,
+        role: u.role,
+      },
+    });
+  }
 
-  const user1 = await prisma.user.create({
-    data: {
-      username: "john_doe",
-      password: hashedPassword,
-      role: "USER",
-    },
-  });
+  console.log("✅ Users ensured");
+}
 
-  const user2 = await prisma.user.create({
-    data: {
-      username: "jane_smith",
-      password: hashedPassword,
-      role: "USER",
-    },
-  });
+async function createFeatures() {
+  // Ensure lowercase feature names
+  for (const type of Object.keys(defaultRoomData)) {
+    const { features } = defaultRoomData[type];
+    for (const f of features) {
+      const fname = f.trim().toLowerCase();
 
-  console.log("✅ Users created");
+      const feature = await prisma.roomFeature.upsert({
+        where: { name: fname },
+        update: {},
+        create: { name: fname },
+      });
 
-  // Create rooms
-  const rooms = await prisma.room.createMany({
+      await prisma.roomTypeFeature.upsert({
+        where: {
+          roomType_featureId: { roomType: type, featureId: feature.id },
+        },
+        update: {},
+        create: { roomType: type, featureId: feature.id },
+      });
+    }
+  }
+
+  console.log("✅ Features + RoomTypeFeature seeded (lowercased)");
+}
+
+async function createRoomsDev() {
+  await prisma.room.createMany({
     data: [
-      { roomNumber: "101", type: "SINGLE", price: 80.0, status: "AVAILABLE" },
-      { roomNumber: "102", type: "SINGLE", price: 80.0, status: "AVAILABLE" },
-      { roomNumber: "201", type: "DOUBLE", price: 120.0, status: "AVAILABLE" },
-      { roomNumber: "202", type: "DOUBLE", price: 120.0, status: "OCCUPIED" },
-      { roomNumber: "301", type: "SUITE", price: 200.0, status: "AVAILABLE" },
-      { roomNumber: "302", type: "SUITE", price: 200.0, status: "MAINTENANCE" },
-      { roomNumber: "401", type: "DELUXE", price: 300.0, status: "AVAILABLE" },
+      {
+        roomNumber: "101",
+        type: "SINGLE",
+        price: defaultRoomData.SINGLE.price,
+        description: defaultRoomData.SINGLE.description,
+        capacity: 1,
+      },
+      {
+        roomNumber: "102",
+        type: "SINGLE",
+        price: defaultRoomData.SINGLE.price,
+        description: defaultRoomData.SINGLE.description,
+        capacity: 1,
+      },
+      {
+        roomNumber: "201",
+        type: "DOUBLE",
+        price: defaultRoomData.DOUBLE.price,
+        description: defaultRoomData.DOUBLE.description,
+        capacity: 2,
+      },
+      {
+        roomNumber: "202",
+        type: "DOUBLE",
+        price: defaultRoomData.DOUBLE.price,
+        description: defaultRoomData.DOUBLE.description,
+        capacity: 2,
+      },
+      {
+        roomNumber: "301",
+        type: "SUITE",
+        price: defaultRoomData.SUITE.price,
+        description: defaultRoomData.SUITE.description,
+        capacity: 3,
+      },
+      {
+        roomNumber: "302",
+        type: "SUITE",
+        price: defaultRoomData.SUITE.price,
+        description: defaultRoomData.SUITE.description,
+        capacity: 3,
+      },
+      {
+        roomNumber: "401",
+        type: "DELUXE",
+        price: defaultRoomData.DELUXE.price,
+        description: defaultRoomData.DELUXE.description,
+        capacity: 3,
+      },
       {
         roomNumber: "402",
         type: "DELUXE",
-        price: 300.0,
-        status: "OUT_OF_ORDER",
-      },
-      { roomNumber: "501", type: "SINGLE", price: 90.0, status: "AVAILABLE" },
-      { roomNumber: "502", type: "DOUBLE", price: 140.0, status: "AVAILABLE" },
-    ],
-  });
-
-  console.log("✅ Rooms created");
-
-  // Get created rooms for booking references
-  const roomList = await prisma.room.findMany();
-  const room101 = roomList.find((r) => r.roomNumber === "101");
-  const room201 = roomList.find((r) => r.roomNumber === "201");
-  const room301 = roomList.find((r) => r.roomNumber === "301");
-  const room401 = roomList.find((r) => r.roomNumber === "401");
-  const room501 = roomList.find((r) => r.roomNumber === "501");
-
-  // Create bookings
-  const now = new Date();
-  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-  const bookings = await prisma.booking.createMany({
-    data: [
-      {
-        userId: user1.id,
-        roomId: room101.id,
-        startDate: tomorrow,
-        endDate: new Date(tomorrow.getTime() + 3 * 24 * 60 * 60 * 1000),
-        status: "CONFIRMED",
-      },
-      {
-        userId: user2.id,
-        roomId: room201.id,
-        startDate: nextWeek,
-        endDate: new Date(nextWeek.getTime() + 5 * 24 * 60 * 60 * 1000),
-        status: "PENDING",
-      },
-      {
-        userId: user1.id,
-        roomId: room301.id,
-        startDate: nextMonth,
-        endDate: new Date(nextMonth.getTime() + 2 * 24 * 60 * 60 * 1000),
-        status: "CONFIRMED",
-      },
-      {
-        userId: user2.id,
-        roomId: room401.id,
-        startDate: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
-        endDate: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
-        status: "COMPLETED",
-      },
-      {
-        userId: user1.id,
-        roomId: room501.id,
-        startDate: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
-        endDate: new Date(now.getTime() + 16 * 24 * 60 * 60 * 1000),
-        status: "CANCELLED",
+        price: defaultRoomData.DELUXE.price,
+        description: defaultRoomData.DELUXE.description,
+        capacity: 3,
       },
     ],
+    skipDuplicates: true,
   });
 
-  console.log("✅ Bookings created");
+  // Attach features per room
+  const rooms = await prisma.room.findMany();
+  for (const room of rooms) {
+    const features = await prisma.roomTypeFeature.findMany({
+      where: { roomType: room.type },
+    });
 
-  // Update room 202 status to OCCUPIED (it has a confirmed booking)
-  await prisma.room.update({
-    where: { roomNumber: "202" },
-    data: { status: "OCCUPIED" },
-  });
+    for (const f of features) {
+      await prisma.roomFeatureMap.upsert({
+        where: {
+          roomId_featureId: { roomId: room.id, featureId: f.featureId },
+        },
+        update: {},
+        create: { roomId: room.id, featureId: f.featureId },
+      });
+    }
+  }
 
-  console.log("🎉 Database seeded successfully!");
-  console.log("\n📊 Summary:");
-  console.log(`- Users: 4 (1 Admin, 1 Manager, 2 Users)`);
-  console.log(`- Rooms: 10 (various types and statuses)`);
-  console.log(`- Bookings: 5 (different statuses and dates)`);
-  console.log("\n🔑 Test Credentials:");
-  console.log("Username: admin | Password: password123 (ADMIN)");
-  console.log("Username: manager | Password: password123 (MANAGER)");
-  console.log("Username: john_doe | Password: password123 (USER)");
-  console.log("Username: jane_smith | Password: password123 (USER)");
+  console.log("✅ Rooms seeded + features linked");
+}
+
+async function createRates() {
+  const rooms = await prisma.room.findMany();
+
+  for (const room of rooms) {
+    const basePrice = parseFloat(room.price);
+    const policies = ["FLEXIBLE", "STRICT", "NON_REFUNDABLE"];
+    const policy = policies[room.id % policies.length]; // rotate
+
+    await prisma.rate.upsert({
+      where: { roomId_policy: { roomId: room.id, policy } },
+      update: {},
+      create: {
+        roomId: room.id,
+        policy,
+        rate: basePrice,
+        dealPrice: basePrice * 0.9,
+        availability: 3,
+      },
+    });
+  }
+
+  console.log("✅ Rates seeded");
+}
+
+async function main() {
+  console.log("🌱 Starting seed...");
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("⚙️ Development mode: resetting...");
+
+    await prisma.booking.deleteMany();
+    await prisma.rate.deleteMany();
+    await prisma.roomFeatureMap.deleteMany();
+    await prisma.room.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.roomFeature.deleteMany();
+    await prisma.roomTypeFeature.deleteMany();
+
+    await createUsers();
+    await createFeatures();
+    await createRoomsDev();
+    await createRates();
+  } else {
+    console.log("⚙️ Production mode: only ensuring users, features, and rates");
+    await createUsers();
+    await createFeatures();
+    await createRates();
+  }
+
+  console.log("🎉 Seeding complete!");
 }
 
 main()
