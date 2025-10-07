@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../UserContext";
+import { FcGoogle } from "react-icons/fc"; // Google icon
 
 function Login() {
   const { login } = useUser();
@@ -11,6 +12,7 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ---------------- Handle normal login ----------------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -19,13 +21,9 @@ function Login() {
     const result = await login({ username, password });
 
     if (result.success) {
-      // Redirect based on role
-      console.log("Login successful, user role:", result.user.role);
       if (result.user.role === "ADMIN") {
-        console.log("Redirecting admin to dashboard");
         navigate("/dashboard");
       } else {
-        console.log("Redirecting user to homepage");
         navigate("/");
       }
     } else {
@@ -35,16 +33,24 @@ function Login() {
     setLoading(false);
   };
 
+  // ---------------- Handle Google login ----------------
+  const handleGoogleLogin = () => {
+    // Redirect to backend OAuth flow
+    window.location.href = "http://localhost:3000/api/auth/google";
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#F8F6F1]">
       <form
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-[#E0D8C3]"
       >
+        {/* Title */}
         <h2 className="text-3xl font-semibold text-[#B89B5E] mb-6 text-center">
           Login
         </h2>
 
+        {/* Username */}
         <div className="mb-4">
           <label className="block text-gray-700 mb-1" htmlFor="username">
             Username
@@ -59,6 +65,7 @@ function Login() {
           />
         </div>
 
+        {/* Password */}
         <div className="mb-6">
           <label className="block text-gray-700 mb-1" htmlFor="password">
             Password
@@ -73,18 +80,39 @@ function Login() {
           />
         </div>
 
+        {/* Error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
             {error}
           </div>
         )}
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
           className="w-full bg-[#B89B5E] text-white py-2 rounded hover:bg-[#a0854d] transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Logging in..." : "Log In"}
+        </button>
+
+        {/* Divider */}
+        <div className="flex items-center my-4">
+          <hr className="flex-grow border-t border-gray-300" />
+          <span className="px-2 text-gray-500 text-sm">OR</span>
+          <hr className="flex-grow border-t border-gray-300" />
+        </div>
+
+        {/* Google login */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded py-2 hover:bg-gray-100 transition"
+        >
+          <FcGoogle className="text-xl" />
+          <span className="text-gray-700 font-medium">
+            Continue with Google
+          </span>
         </button>
       </form>
     </div>

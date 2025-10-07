@@ -1,12 +1,11 @@
 generator client {
   provider = "prisma-client-js"
-  output = "./node_modules.nosync/@prisma/client"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider          = "mysql"
-  url               = env("DATABASE_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -22,34 +21,43 @@ model User {
 }
 
 model Guest {
-  id        Int      @id @default(autoincrement())
-  fullName  String
-  email     String?
-  bookingId Int
-  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  roomId    Int?
-  room      Room?    @relation(fields: [roomId], references: [id])
-  status    String   @default("Reserved")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+  id            Int           @id @default(autoincrement())
+  fullName      String
+  email         String?
+  bookingId     Int           @unique(map: "guest_bookingid_unique")
+  roomId        Int?
+  status        String        @default("Reserved")
+  paymentStatus PaymentStatus @default(PENDING)
+  finalPrice    Decimal?      @db.Decimal(10, 2)
+  dealId        Int?                                   
 
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  room          Room?         @relation(fields: [roomId], references: [id])
+  deal          Deal?         @relation("GuestToDeal", fields: [dealId], references: [id], onDelete: SetNull) // ✅ FIX
+
+  @@index([roomId], map: "Guest_roomId_fkey")
+}
 
 model Room {
   id          Int              @id @default(autoincrement())
   roomNumber  String           @unique
+  floor       String?
   type        rooms_type
   price       Decimal          @db.Decimal(10, 2)
-  status      RoomStatus       @default(AVAILABLE)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   description String?          @db.Text
-  bookings    Booking[]
-  rates       rates[]
-  features    RoomFeatureMap[]
+  imageUrl    String?          @default("/uploads/rooms/default.jpg")
+  capacity    Int              @default(1)
+  cleanStatus CleanStatus      @default(CLEAN)
 
-  // 👇 Opposite relation
-  guests Guest[]
+  guests      Guest[]
+  rates       Rate[]
+  bookings    Booking[]
+  features    RoomFeatureMap[]
 
   @@map("rooms")
 }
@@ -67,14 +75,19 @@ model Booking {
   customerLastName  String?               @db.VarChar(100)
   customerEmail     String?
   paymentType       bookings_paymentType?
-  room              Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentStatus     PaymentStatus         @default(PENDING)  
+  baseRate          Decimal?              @db.Decimal(10, 2)  
+  finalPrice        Decimal?              @db.Decimal(10, 2)  
+  dealId            Int?                  
 
-  // 👇 Opposite relation
-  guests Guest[]
+  guests            Guest?
+  room              Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal              Deal?    @relation("BookingToDeal", fields: [dealId], references: [id], onDelete: SetNull) // ✅ FIX
 
   @@index([roomId], map: "bookings_roomId_fkey")
   @@index([userId], map: "bookings_userId_fkey")
+  @@index([dealId], map: "bookings_dealId_fkey")
   @@map("bookings")
 }
 
@@ -94,8 +107,8 @@ model RoomFeatureMap {
   room      Room        @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "room_feature_map_ibfk_1")
   feature   RoomFeature @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "room_feature_map_ibfk_2")
 
+  @@unique([roomId, featureId], map: "unique_room_feature")
   @@index([featureId], map: "featureId")
-  @@index([roomId], map: "roomId")
   @@map("room_feature_map")
 }
 
@@ -109,42 +122,51 @@ model RoomTypeFeature {
   @@map("room_type_features")
 }
 
-model deals {
+model Deal {
   id        Int            @id @default(autoincrement())
   name      String
   discount  Int
   status    deals_status?  @default(ONGOING)
   endDate   DateTime?      @db.Date
-  roomType  deals_roomType
+  roomType  deals_roomType 
   createdAt DateTime?      @default(now()) @db.Timestamp(0)
   updatedAt DateTime?      @default(now()) @db.Timestamp(0)
+
+  rates     Rate[]
+  bookings  Booking[] @relation("BookingToDeal")
+  guests    Guest[]   @relation("GuestToDeal")
 }
 
-model rates {
+model Rate {
   id           Int          @id @default(autoincrement())
   roomId       Int
   policy       rates_policy
   rate         Decimal      @db.Decimal(10, 2)
   dealPrice    Decimal?     @db.Decimal(10, 2)
-  availability Int
+  dealId       Int?
   createdAt    DateTime?    @default(now()) @db.Timestamp(0)
   updatedAt    DateTime?    @default(now()) @db.Timestamp(0)
-  rooms        Room         @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "rates_ibfk_1")
 
-  @@index([roomId], map: "roomId")
+  room         Room         @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  deal         Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull) // ✅ FIX
+
+  @@index([roomId], map: "Rate_roomId_fkey")
+  @@index([dealId], map: "Rate_dealId_fkey")
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 enum Role {
   ADMIN
   MANAGER
   USER
-}
-
-enum RoomStatus {
-  AVAILABLE
-  OCCUPIED
-  MAINTENANCE
-  OUT_OF_ORDER
 }
 
 enum BookingStatus {
@@ -184,4 +206,16 @@ enum deals_roomType {
   DOUBLE
   SUITE
   DELUXE
+  ALL     
+}
+
+enum CleanStatus {
+  CLEAN
+  DIRTY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
 }

@@ -1,106 +1,114 @@
 // src/Pages/Dashboard/Guests.jsx
 import { useEffect, useState } from "react";
 import apiService from "../../services/api";
+import { useUser } from "../../UserContext";
 
 function Guests() {
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { triggerRefresh } = useUser(); // 👈 refresh Dashboard stats too
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const fetchGuests = async () => {
+    try {
+      const data = await apiService.getGuests();
+      setGuests(data || []);
+    } catch (err) {
+      console.error("Failed to fetch guests:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchGuests = async () => {
-      try {
-        const data = await apiService.getGuests();
-        setGuests(data);
-      } catch (err) {
-        console.error("Failed to fetch guests:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchGuests();
   }, []);
 
-  // Filtering logic
-  const filteredGuests = guests.filter((g) => {
-    const matchesSearch =
-      g.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      (g.email && g.email.toLowerCase().includes(search.toLowerCase()));
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await apiService.updateGuestStatus(id, { status: newStatus });
+      await fetchGuests(); // 👈 reload after update
+      triggerRefresh(); // 👈 force Dashboard to recalc occupancy
+    } catch (err) {
+      console.error("Failed to update guest status:", err);
+    }
+  };
 
-    const matchesStatus = statusFilter === "ALL" || g.status === statusFilter;
+  const handlePaymentChange = async (id, newPaymentStatus) => {
+    try {
+      await apiService.updateGuestStatus(id, {
+        paymentStatus: newPaymentStatus,
+      });
+      await fetchGuests(); // 👈 reload after update
+      triggerRefresh();
+    } catch (err) {
+      console.error("Failed to update payment status:", err);
+    }
+  };
 
-    return matchesSearch && matchesStatus;
-  });
-
-  if (loading) {
-    return <div className="p-6">Loading guests...</div>;
-  }
+  if (loading) return <div className="p-6">Loading guests...</div>;
 
   return (
     <div className="p-6">
       <h2 className="text-2xl font-semibold mb-6">Guests</h2>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <input
-          type="text"
-          placeholder="Search by name or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-3 py-2 border rounded-md"
-        />
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border rounded-md"
-        >
-          <option value="ALL">All Statuses</option>
-          <option value="Reserved">Reserved</option>
-          <option value="PENDING">Pending</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="COMPLETED">Completed</option>
-        </select>
-      </div>
-
-      {/* Guests Table */}
-      <div className="bg-white shadow-md rounded-lg p-4 overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-2 border">Name</th>
-              <th className="p-2 border">Email</th>
-              <th className="p-2 border">Room</th>
-              <th className="p-2 border">Check-In</th>
-              <th className="p-2 border">Check-Out</th>
-              <th className="p-2 border">Status</th>
+      <div className="bg-white shadow rounded-lg overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-3">Full Name</th>
+              <th className="p-3">Email</th>
+              <th className="p-3">Room</th>
+              <th className="p-3">Deal</th>
+              <th className="p-3">Price</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Payment</th>
             </tr>
           </thead>
           <tbody>
-            {filteredGuests.length === 0 && (
+            {guests.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center p-3 text-gray-500">
+                <td colSpan={7} className="p-4 text-center text-gray-500">
                   No guests found.
                 </td>
               </tr>
             )}
-            {filteredGuests.map((g) => (
-              <tr key={g.id} className="border-b hover:bg-gray-50">
-                <td className="p-2 border">{g.fullName}</td>
-                <td className="p-2 border">{g.email || "-"}</td>
-                <td className="p-2 border">{g.booking.room?.roomNumber}</td>
-                <td className="p-2 border">
-                  {new Date(g.booking.startDate).toLocaleDateString()}
+            {guests.map((g) => (
+              <tr key={g.id} className="border-b">
+                <td className="p-3">{g.fullName}</td>
+                <td className="p-3">{g.email || "—"}</td>
+                <td className="p-3">
+                  {g.room?.roomNumber
+                    ? `#${g.room.roomNumber} (${g.room.type})`
+                    : "—"}
                 </td>
-                <td className="p-2 border">
-                  {new Date(g.booking.endDate).toLocaleDateString()}
+                <td className="p-3">
+                  {g.deal ? `${g.deal.name} (${g.deal.discount}%)` : "—"}
                 </td>
-                <td className="p-2 border">{g.status}</td>
+                <td className="p-3">
+                  {g.finalPrice ? `$${g.finalPrice}` : "—"}
+                </td>
+                <td className="p-3">
+                  <select
+                    value={g.status}
+                    onChange={(e) => handleStatusChange(g.id, e.target.value)}
+                    className="border rounded px-2 py-1"
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="CONFIRMED">Confirmed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </td>
+                <td className="p-3">
+                  <select
+                    value={g.paymentStatus || "PENDING"}
+                    onChange={(e) => handlePaymentChange(g.id, e.target.value)}
+                    className="border rounded px-2 py-1"
+                  >
+                    <option value="PENDING">Pending</option>
+                    <option value="PAID">Paid</option>
+                  </select>
+                </td>
               </tr>
             ))}
           </tbody>

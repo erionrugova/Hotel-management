@@ -7,6 +7,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { UserProvider, useUser } from "./UserContext";
+import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ Add this
 
 // Public pages
 import Layout from "./Layout";
@@ -16,6 +17,7 @@ import Login from "./Pages/Login";
 import ContactUs from "./Pages/ContactUs";
 import Rooms from "./Pages/Rooms";
 import RoomDetails from "./Pages/RoomDetails";
+import LoginSuccess from "./Pages/LoginSuccess";
 
 // Dashboard pages
 import DashboardLayout from "./Pages/Dashboard/DashboardLayout";
@@ -63,6 +65,7 @@ function AppRoutes() {
 
       {/* Login */}
       <Route path="/login" element={<Login />} />
+      <Route path="/login-success" element={<LoginSuccess />} />
 
       {/* Admin dashboard routes */}
       <Route
@@ -86,11 +89,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <UserProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </UserProvider>
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
+      <UserProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </UserProvider>
+    </GoogleOAuthProvider>
   );
 }
 
