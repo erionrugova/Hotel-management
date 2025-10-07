@@ -2,10 +2,7 @@
 # Dependencies
 # -------------------------
 node_modules/
-node_modules
-node_modules.nosync/
-client/node_modules.nosync
-server/node_modules.nosync
+
 
 .pnp
 .pnp.js
