@@ -121,7 +121,7 @@ router.get("/:id", async (req, res) => {
       bookedCount: room.bookings.filter((b) => b.status === "CONFIRMED").length,
     });
   } catch (err) {
-    console.error("❌ Error fetching room:", err);
+    console.error("Error fetching room:", err);
     res.status(500).json({ error: "Failed to fetch room" });
   }
 });

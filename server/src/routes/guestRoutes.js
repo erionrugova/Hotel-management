@@ -33,42 +33,38 @@ router.get("/", async (req, res) => {
 });
 
 // update guest status
-router.patch(
-  "/:id/status",
-  authorize("ADMIN", "MANAGER", "RECEPTIONIST"),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status, paymentStatus } = req.body;
+router.patch("/:id/status", authorize("ADMIN", "MANAGER"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, paymentStatus } = req.body;
 
-      const updateData = {};
-      if (status) updateData.status = status;
-      if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
-      const updated = await prisma.guest.update({
-        where: { id: parseInt(id) },
-        data: updateData,
-        include: { booking: true, deal: true },
+    const updated = await prisma.guest.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: { booking: true, deal: true },
+    });
+
+    if (updated.bookingId) {
+      await prisma.booking.update({
+        where: { id: updated.bookingId },
+        data: {
+          status: status || updated.booking.status,
+          paymentStatus: paymentStatus || updated.booking.paymentStatus,
+        },
       });
-
-      if (updated.bookingId) {
-        await prisma.booking.update({
-          where: { id: updated.bookingId },
-          data: {
-            status: status || updated.booking.status,
-            paymentStatus: paymentStatus || updated.booking.paymentStatus,
-          },
-        });
-      }
-
-      res.json({ message: "Guest + booking updated", guest: updated });
-    } catch (err) {
-      console.error("Error updating guest:", err);
-      if (err.code === "P2025")
-        return res.status(404).json({ error: "Guest not found" });
-      res.status(500).json({ error: "Failed to update guest" });
     }
+
+    res.json({ message: "Guest + booking updated", guest: updated });
+  } catch (err) {
+    console.error("Error updating guest:", err);
+    if (err.code === "P2025")
+      return res.status(404).json({ error: "Guest not found" });
+    res.status(500).json({ error: "Failed to update guest" });
   }
-);
+});
 
 export default router;

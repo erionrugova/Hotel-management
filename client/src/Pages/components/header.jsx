@@ -4,7 +4,7 @@ import { useUser } from "../../UserContext";
 function Header() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin } = useUser();
+  const { user, logout, isAdmin, isManager } = useUser();
 
   const publicNavItems = [
     { name: "Home", path: "/" },
@@ -50,6 +50,7 @@ function Header() {
                 <span className="text-sm text-gray-700">
                   Welcome, {user.username}
                 </span>
+
                 {isAdmin() && (
                   <Link
                     to="/dashboard"
@@ -58,6 +59,16 @@ function Header() {
                     Admin Dashboard
                   </Link>
                 )}
+
+                {isManager() && (
+                  <Link
+                    to="/dashboard"
+                    className="bg-[#B89B5E] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#a0854d] transition-colors"
+                  >
+                    Manager Dashboard
+                  </Link>
+                )}
+
                 <button
                   onClick={handleLogout}
                   className="text-gray-700 hover:text-[#B89B5E] text-sm font-medium"

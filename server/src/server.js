@@ -98,7 +98,7 @@ app.use("/api/contact", contactRoutes);
 app.get("/api/health", (req, res) =>
   res.json({
     status: "OK",
-    message: "Hotel Management API running securely 🚀",
+    message: "Hotel Management API running securely",
   })
 );
 

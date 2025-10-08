@@ -6,7 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { UserProvider, useUser } from "./UserContext";
-import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ Add this
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import SessionExpiredModal from "./components/SessionExpiredModal";
 
@@ -42,7 +42,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
+  if (requiredRole && user && !requiredRole.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 
@@ -66,7 +66,7 @@ function AppRoutes() {
       <Route
         path="/dashboard/*"
         element={
-          <ProtectedRoute requiredRole="ADMIN">
+          <ProtectedRoute requiredRole={["ADMIN", "MANAGER"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }

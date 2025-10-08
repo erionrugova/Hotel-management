@@ -27,7 +27,7 @@ async function logSession(userId, action, req) {
     });
     console.log(`🧾 Logged session: ${action} for user ${userId}`);
   } catch (err) {
-    console.error("❌ Failed to log session:", err);
+    console.error("Failed to log session:", err);
   }
 }
 

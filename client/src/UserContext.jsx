@@ -29,16 +29,16 @@ export const UserProvider = ({ children }) => {
       if (token && userData) {
         try {
           setUser(JSON.parse(userData));
-          console.log("✅ Restored user from local storage");
+          console.log("Restored user from local storage");
         } catch {
-          console.error("❌ Failed to parse stored user");
+          console.error("Failed to parse stored user");
           localStorage.removeItem("user");
         }
       } else {
-        console.log("🔄 No local session, trying to refresh token...");
+        console.log("No local session, trying to refresh token...");
         const newAccess = await apiService.refreshAccessToken();
         if (newAccess) {
-          console.log("✅ Session restored via refresh token");
+          console.log("Session restored via refresh token");
           const decoded = parseJwt(newAccess);
           const newUser = {
             username: decoded.username,
@@ -48,7 +48,7 @@ export const UserProvider = ({ children }) => {
           localStorage.setItem("token", newAccess);
           localStorage.setItem("user", JSON.stringify(newUser));
         } else {
-          console.log("⚠️ No refresh token or expired session");
+          console.log("No refresh token or expired session");
         }
       }
       setLoading(false);
@@ -70,11 +70,11 @@ export const UserProvider = ({ children }) => {
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
-      console.log("✅ User logged in:", userData);
+      console.log("User logged in:", userData);
 
       return { success: true, user: userData };
     } catch (error) {
-      console.error("❌ Login failed:", error);
+      console.error("Login failed:", error);
       return { success: false, error: error.message };
     }
   };
@@ -82,14 +82,14 @@ export const UserProvider = ({ children }) => {
   // google login
   const loginWithGoogle = (accessToken, userData) => {
     if (!accessToken || !userData) {
-      console.error("❌ Invalid Google login response");
+      console.error("Invalid Google login response");
       return { success: false, error: "Invalid Google login" };
     }
 
     localStorage.setItem("token", accessToken);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
-    console.log("✅ Google login success:", userData);
+    console.log("Google login success:", userData);
 
     return { success: true, user: userData };
   };
@@ -98,7 +98,7 @@ export const UserProvider = ({ children }) => {
     try {
       await apiService.logout(); // backen will revoke refresh token
     } catch (err) {
-      console.warn("⚠️ Logout request failed:", err);
+      console.warn("Logout request failed:", err);
     }
 
     localStorage.removeItem("token");
@@ -107,9 +107,9 @@ export const UserProvider = ({ children }) => {
 
     if (showModal) {
       setSessionExpired(true);
-      console.log("⚠️ Session expired, showing popup");
+      console.log("Session expired, showing popup");
     } else {
-      console.log("✅ User logged out");
+      console.log("User logged out");
     }
   };
 
@@ -121,7 +121,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   const triggerRefresh = () => {
-    console.log("🔄 Global refresh triggered");
+    console.log("Global refresh triggered");
     setRefreshFlag((prev) => !prev);
   };
 
