@@ -1,4 +1,3 @@
-// src/UserContext.jsx
 import { createContext, useState, useContext, useEffect } from "react";
 import apiService from "./services/api";
 
@@ -7,83 +6,125 @@ const UserContext = createContext();
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [refreshFlag, setRefreshFlag] = useState(false);
 
-  // ---------------- Global refresh system ----------------
-  const [refreshKey, setRefreshKey] = useState(0);
-  const triggerRefresh = () => {
-    console.log("🔁 Global refresh triggered");
-    setRefreshKey((prev) => prev + 1);
+  // decode JWT
+  const parseJwt = (token) => {
+    try {
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      return JSON.parse(atob(base64));
+    } catch {
+      return {};
+    }
   };
 
-  // ---------------- Hydrate user on load ----------------
+  // restore session on load
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
+    const restoreSession = async () => {
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
 
-    if (token && userData) {
-      try {
-        const parsed = JSON.parse(userData);
-        setUser(parsed);
-        console.log("✅ Hydrated user from storage:", parsed);
-      } catch (err) {
-        console.error("❌ Failed to parse stored user:", err);
-        localStorage.removeItem("user");
+      if (token && userData) {
+        try {
+          setUser(JSON.parse(userData));
+          console.log("✅ Restored user from local storage");
+        } catch {
+          console.error("❌ Failed to parse stored user");
+          localStorage.removeItem("user");
+        }
+      } else {
+        console.log("🔄 No local session, trying to refresh token...");
+        const newAccess = await apiService.refreshAccessToken();
+        if (newAccess) {
+          console.log("✅ Session restored via refresh token");
+          const decoded = parseJwt(newAccess);
+          const newUser = {
+            username: decoded.username,
+            role: decoded.role,
+          };
+          setUser(newUser);
+          localStorage.setItem("token", newAccess);
+          localStorage.setItem("user", JSON.stringify(newUser));
+        } else {
+          console.log("⚠️ No refresh token or expired session");
+        }
       }
-    }
-    setLoading(false);
-  }, [refreshKey]);
+      setLoading(false);
+    };
 
-  // ---------------- Normal login (username/password) ----------------
+    restoreSession();
+  }, []);
+
+  // login
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
-      const { token, user: userData } = response;
-      localStorage.setItem("token", token);
+      const { accessToken, user: userData } = response;
+
+      if (!accessToken || !userData) {
+        throw new Error("Invalid response from server");
+      }
+
+      localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
+      console.log("✅ User logged in:", userData);
+
       return { success: true, user: userData };
     } catch (error) {
-      console.error("❌ Login error:", error);
+      console.error("❌ Login failed:", error);
       return { success: false, error: error.message };
     }
   };
 
-  // ---------------- Google login ----------------
-  const loginWithGoogle = (token, userData) => {
-    if (!token || !userData)
+  // google login
+  const loginWithGoogle = (accessToken, userData) => {
+    if (!accessToken || !userData) {
+      console.error("❌ Invalid Google login response");
       return { success: false, error: "Invalid Google login" };
+    }
+
+    localStorage.setItem("token", accessToken);
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
+    console.log("✅ Google login success:", userData);
+
+    return { success: true, user: userData };
+  };
+
+  const logout = async (showModal = false) => {
     try {
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      setUser(userData);
-      console.log("✅ Google login success:", userData);
-      return { success: true, user: userData };
+      await apiService.logout(); // backen will revoke refresh token
     } catch (err) {
-      console.error("❌ Failed to save Google login:", err);
-      return { success: false, error: err.message };
+      console.warn("⚠️ Logout request failed:", err);
     }
-  };
 
-  // ---------------- Register ----------------
-  const register = async (userData) => {
-    try {
-      const response = await apiService.register(userData);
-      return { success: true, data: response };
-    } catch (error) {
-      console.error("❌ Register error:", error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  // ---------------- Logout ----------------
-  const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
-    console.log("✅ User logged out");
+
+    if (showModal) {
+      setSessionExpired(true);
+      console.log("⚠️ Session expired, showing popup");
+    } else {
+      console.log("✅ User logged out");
+    }
   };
 
-  // ---------------- Role helpers ----------------
+  // handle session expiry
+  useEffect(() => {
+    const handleExpired = () => logout(true);
+    window.addEventListener("sessionExpired", handleExpired);
+    return () => window.removeEventListener("sessionExpired", handleExpired);
+  }, []);
+
+  const triggerRefresh = () => {
+    console.log("🔄 Global refresh triggered");
+    setRefreshFlag((prev) => !prev);
+  };
+
   const isAdmin = () => user?.role === "ADMIN";
   const isManager = () => user?.role === "MANAGER";
   const isUser = () => user?.role === "USER";
@@ -93,13 +134,14 @@ export const UserProvider = ({ children }) => {
     loading,
     login,
     loginWithGoogle,
-    register,
     logout,
     isAdmin,
     isManager,
     isUser,
-    refreshKey,
-    triggerRefresh, // ✅ used by other components
+    sessionExpired,
+    setSessionExpired,
+    refreshFlag,
+    triggerRefresh,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

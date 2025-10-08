@@ -1,4 +1,3 @@
-// src/Pages/Dashboard/Rate.jsx
 import { useEffect, useState } from "react";
 import apiService from "../../services/api";
 import { useUser } from "../../UserContext";
@@ -32,7 +31,6 @@ function Rate() {
     try {
       const data = await apiService.getRates();
 
-      // ✅ Sort so Deluxe comes before Suite
       const order = { SINGLE: 1, DOUBLE: 2, DELUXE: 3, SUITE: 4 };
       const sorted = [...data].sort(
         (a, b) => order[a.room?.type] - order[b.room?.type]
@@ -60,13 +58,17 @@ function Rate() {
   const fetchDeals = async () => {
     try {
       const data = await apiService.getDeals();
+      if (!Array.isArray(data)) {
+        console.warn("⚠️ Deals response invalid:", data);
+        setDeals([]);
+        return;
+      }
       setDeals(data.filter((d) => d.status === "ONGOING"));
     } catch (err) {
       console.error("Failed to fetch deals:", err);
     }
   };
 
-  // -------------------- CREATE rate --------------------
   const handleAddRate = async () => {
     try {
       if (!form.roomId || !form.policy || !form.rate) {
@@ -89,8 +91,6 @@ function Rate() {
       alert(err.message);
     }
   };
-
-  // -------------------- OPEN edit modal --------------------
   const handleEditClick = (rate) => {
     setEditForm({
       id: rate.id,
@@ -102,7 +102,6 @@ function Rate() {
     setEditModal(true);
   };
 
-  // -------------------- UPDATE rate --------------------
   const handleSaveEdit = async () => {
     try {
       const updated = await apiService.updateRate(editForm.id, {
@@ -120,7 +119,6 @@ function Rate() {
     }
   };
 
-  // -------------------- DELETE rate --------------------
   const handleDeleteRate = async (id) => {
     try {
       await apiService.deleteRate(id);
@@ -146,8 +144,6 @@ function Rate() {
           </button>
         )}
       </div>
-
-      {/* -------------------- Rates Table -------------------- */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-100">
@@ -164,7 +160,6 @@ function Rate() {
           <tbody>
             {rates.map((r, index) => (
               <tr key={r.id} className="border-b">
-                {/* ✅ Sequential row numbering */}
                 <td className="p-3">{index + 1}</td>
                 <td className="p-3">
                   {r.room
@@ -206,7 +201,6 @@ function Rate() {
         </table>
       </div>
 
-      {/* -------------------- Add Rate Modal -------------------- */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white p-6 rounded shadow-lg w-96 space-y-4">
@@ -225,7 +219,6 @@ function Rate() {
               ))}
             </select>
 
-            {/* ✅ Policy dropdown */}
             <select
               value={form.policy}
               onChange={(e) => setForm({ ...form, policy: e.target.value })}
@@ -245,7 +238,6 @@ function Rate() {
               className="w-full border px-3 py-2 rounded"
             />
 
-            {/* ✅ Only show deals valid for this room */}
             <select
               value={form.dealId}
               onChange={(e) => setForm({ ...form, dealId: e.target.value })}
@@ -287,7 +279,6 @@ function Rate() {
         </div>
       )}
 
-      {/* -------------------- Edit Rate Modal -------------------- */}
       {editModal && editForm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white p-6 rounded shadow-lg w-96 space-y-4">
@@ -308,7 +299,6 @@ function Rate() {
               ))}
             </select>
 
-            {/* ✅ Policy dropdown */}
             <select
               value={editForm.policy}
               onChange={(e) =>
@@ -331,7 +321,6 @@ function Rate() {
               className="w-full border px-3 py-2 rounded"
             />
 
-            {/* ✅ Only show deals valid for this room */}
             <select
               value={editForm.dealId || ""}
               onChange={(e) =>

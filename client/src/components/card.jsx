@@ -1,6 +1,5 @@
 import React from "react";
 
-// Card wrapper
 export function Card({ children, className }) {
   return (
     <div
@@ -11,7 +10,6 @@ export function Card({ children, className }) {
   );
 }
 
-// Card content
 export function CardContent({ children, className }) {
   return <div className={`p-2 ${className}`}>{children}</div>;
 }

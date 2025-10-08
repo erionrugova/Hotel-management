@@ -5,7 +5,7 @@ import { authenticateToken, authorize } from "../middleware/auth.js";
 const router = express.Router();
 router.use(authenticateToken);
 
-// ----------------- GET all guests -----------------
+// get all guests
 router.get("/", async (req, res) => {
   try {
     const guests = await prisma.guest.findMany({
@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ----------------- UPDATE guest status -----------------
+// update guest status
 router.patch(
   "/:id/status",
   authorize("ADMIN", "MANAGER", "RECEPTIONIST"),
@@ -51,7 +51,6 @@ router.patch(
         include: { booking: true, deal: true },
       });
 
-      // 🔑 Sync booking status + payment if linked
       if (updated.bookingId) {
         await prisma.booking.update({
           where: { id: updated.bookingId },

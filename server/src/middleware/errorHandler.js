@@ -1,8 +1,7 @@
-// src/middleware/errorHandler.js
 export const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
 
-  // Prisma errors
+  // prisma errors
   if (err.code === "P2002") {
     return res.status(400).json({
       error: "Duplicate entry",
@@ -32,7 +31,7 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Validation errors
+  // validation errors
   if (err.name === "ValidationError") {
     return res.status(400).json({
       error: "Validation error",
@@ -40,7 +39,7 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Default error
+  // default error
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal server error";
 

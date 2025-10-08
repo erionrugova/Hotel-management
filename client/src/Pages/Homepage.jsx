@@ -12,14 +12,12 @@ function Homepage() {
   const [scrollY, setScrollY] = useState(0);
   const sectionsRef = useRef([]);
 
-  // ✅ Parallax scroll effect for hero image
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // ✅ Scroll-triggered fade-in animation
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -44,9 +42,7 @@ function Homepage() {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-hidden">
-      {/* ------------------ HERO SECTION ------------------ */}
       <div className="relative overflow-hidden">
-        {/* Parallax Image */}
         <div
           className="w-full h-[600px] bg-cover bg-center transition-transform duration-700"
           style={{
@@ -55,7 +51,6 @@ function Homepage() {
           }}
         ></div>
 
-        {/* Overlay Text */}
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="text-center text-white animate-fade-in-up px-4">
             <h1 className="text-5xl md:text-6xl font-extrabold mb-4 tracking-wide">
@@ -74,9 +69,7 @@ function Homepage() {
         </div>
       </div>
 
-      {/* ------------------ MAIN CONTENT ------------------ */}
       <main className="container mx-auto space-y-24 px-8 md:px-16 lg:px-24 xl:px-32 py-20">
-        {/* ------------ ROOM PREVIEW ------------ */}
         <section
           ref={(el) => (sectionsRef.current[0] = el)}
           className="opacity-0 transition-all duration-700 transform translate-y-10"
@@ -120,7 +113,6 @@ function Homepage() {
           </div>
         </section>
 
-        {/* ------------ SPA SECTION ------------ */}
         <section
           ref={(el) => (sectionsRef.current[1] = el)}
           className="opacity-0 transition-all duration-700 transform translate-y-10"
@@ -145,7 +137,6 @@ function Homepage() {
           </div>
         </section>
 
-        {/* ------------ DINING SECTION ------------ */}
         <section
           ref={(el) => (sectionsRef.current[2] = el)}
           className="opacity-0 transition-all duration-700 transform translate-y-10"
@@ -170,7 +161,6 @@ function Homepage() {
           </div>
         </section>
 
-        {/* ------------ CONFERENCE SECTION ------------ */}
         <section
           ref={(el) => (sectionsRef.current[3] = el)}
           className="opacity-0 transition-all duration-700 transform translate-y-10"
@@ -196,7 +186,6 @@ function Homepage() {
         </section>
       </main>
 
-      {/* ✅ Global Footer */}
       <Footer />
     </div>
   );

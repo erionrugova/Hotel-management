@@ -129,3 +129,7 @@ NODE_ENV="development"
 ## Health Check
 
 - `GET /api/health` - Check API status
+
+## clean tokens
+
+node scripts/cleanupTokens.js

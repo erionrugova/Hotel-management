@@ -4,13 +4,10 @@ import { authenticateToken, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Allowed enums
 const VALID_STATUSES = ["ONGOING", "INACTIVE", "FULL"];
-const VALID_ROOM_TYPES = ["SINGLE", "DOUBLE", "SUITE", "DELUXE", "ALL"]; // ✅ Added ALL
+const VALID_ROOM_TYPES = ["SINGLE", "DOUBLE", "SUITE", "DELUXE", "ALL"];
 
-// -------------------- PUBLIC ROUTES --------------------
-
-// Get all deals (public)
+// get all deals
 router.get("/", async (req, res) => {
   try {
     const deals = await prisma.deal.findMany({
@@ -23,7 +20,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get single deal (public)
+// get single deal
 router.get("/:id", async (req, res) => {
   try {
     const deal = await prisma.deal.findUnique({
@@ -38,9 +35,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// -------------------- PROTECTED ROUTES --------------------
-
-// Create deal
+// create deal
 router.post(
   "/",
   authenticateToken,
@@ -49,7 +44,6 @@ router.post(
     try {
       let { name, discount, status, endDate, roomType } = req.body;
 
-      // Basic validations
       if (!name || !discount || !roomType) {
         return res
           .status(400)
@@ -62,19 +56,15 @@ router.post(
       }
 
       if (!VALID_ROOM_TYPES.includes(roomType)) {
-        return res
-          .status(400)
-          .json({
-            error: `roomType must be one of ${VALID_ROOM_TYPES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `roomType must be one of ${VALID_ROOM_TYPES.join(", ")}`,
+        });
       }
 
       if (status && !VALID_STATUSES.includes(status)) {
-        return res
-          .status(400)
-          .json({
-            error: `status must be one of ${VALID_STATUSES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `status must be one of ${VALID_STATUSES.join(", ")}`,
+        });
       }
 
       const deal = await prisma.deal.create({
@@ -95,7 +85,7 @@ router.post(
   }
 );
 
-// Update deal
+// update deal
 router.put(
   "/:id",
   authenticateToken,
@@ -119,11 +109,9 @@ router.put(
 
       if (status !== undefined) {
         if (!VALID_STATUSES.includes(status)) {
-          return res
-            .status(400)
-            .json({
-              error: `status must be one of ${VALID_STATUSES.join(", ")}`,
-            });
+          return res.status(400).json({
+            error: `status must be one of ${VALID_STATUSES.join(", ")}`,
+          });
         }
         updateData.status = status;
       }
@@ -134,11 +122,9 @@ router.put(
 
       if (roomType !== undefined) {
         if (!VALID_ROOM_TYPES.includes(roomType)) {
-          return res
-            .status(400)
-            .json({
-              error: `roomType must be one of ${VALID_ROOM_TYPES.join(", ")}`,
-            });
+          return res.status(400).json({
+            error: `roomType must be one of ${VALID_ROOM_TYPES.join(", ")}`,
+          });
         }
         updateData.roomType = roomType;
       }
@@ -159,7 +145,7 @@ router.put(
   }
 );
 
-// Delete deal
+// delete deal
 router.delete(
   "/:id",
   authenticateToken,

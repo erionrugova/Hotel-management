@@ -18,21 +18,22 @@ export const authenticateToken = async (req, res, next) => {
     });
 
     if (!user) {
+      console.warn("⚠️ Invalid token — user not found");
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    // 🔑 Always attach userId as userId (not just id)
     req.user = {
       userId: user.id,
       username: user.username,
       role: user.role,
     };
 
-    console.log("✅ Authenticated user:", req.user);
-
     next();
   } catch (error) {
-    console.error("❌ Token verification failed:", error.message);
+    console.error("Token verification failed:", error.message);
+    if (error.name === "JsonWebTokenError") {
+      return res.status(403).json({ error: "Malformed token" });
+    }
     return res.status(403).json({ error: "Invalid or expired token" });
   }
 };

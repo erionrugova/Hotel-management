@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ------------------- GLOBAL STYLES ------------------- */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -10,9 +9,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb; /* Subtle gray background for luxury tone */
+  background-color: #f9fafb;
   color: #333;
-  scroll-behavior: smooth; /* Smooth scrolling for parallax and nav links */
+  scroll-behavior: smooth;
 }
 
 code {
@@ -20,9 +19,6 @@ code {
     monospace;
 }
 
-/* ------------------- ANIMATIONS ------------------- */
-
-/* Fade-in upward animation for smooth entry of elements */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -44,34 +40,26 @@ code {
   animation: fadeInUp 1.2s ease-out forwards;
 }
 
-/* Used for the hero text animation (slightly slower and smoother) */
 .animate-fade-in-up {
   opacity: 0;
   animation: fadeInUp 1s ease-out forwards;
 }
 
-/* Scroll-triggered fade-in effect for homepage sections */
 .fade-in-visible {
   opacity: 1 !important;
   transform: translateY(0) !important;
   transition: all 0.8s ease-out;
 }
 
-/* Hidden before entering viewport */
 .opacity-0 {
   opacity: 0;
 }
 
-/* ------------------- PARALLAX SUPPORT ------------------- */
-/* Smooth transitions for parallax backgrounds and images */
 .parallax-image {
   transition: transform 0.3s ease-out;
   will-change: transform;
 }
 
-/* ------------------- DECORATIVE LUXURY TOUCHES ------------------- */
-
-/* Gold underline accent animation (for section titles) */
 .section-title {
   position: relative;
   display: inline-block;
@@ -94,9 +82,6 @@ code {
   width: 128px;
 }
 
-/* ------------------- HERO + BANNER STYLING ------------------- */
-
-/* Optional: soft gradient overlay for hero sections */
 .hero-gradient {
   background: linear-gradient(
     180deg,
@@ -104,8 +89,6 @@ code {
     rgba(255, 255, 255, 1) 100%
   );
 }
-
-/* ------------------- FOOTER STYLING ------------------- */
 
 footer {
   letter-spacing: 0.5px;
@@ -121,7 +104,6 @@ footer a:hover {
   color: #d4b96f;
 }
 
-/* Subtle divider line for footer */
 footer::before {
   content: "";
   display: block;

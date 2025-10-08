@@ -1,13 +1,10 @@
-// src/Pages/LoginSuccess.jsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../UserContext";
 
 function LoginSuccess() {
   const navigate = useNavigate();
-  const { loginWithGoogle, user } = useUser();
-
-  const [processing, setProcessing] = useState(true);
+  const { setUser } = useUser();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -16,48 +13,38 @@ function LoginSuccess() {
 
     if (token && userBase64) {
       try {
-        // ✅ Decode safely (URL decode + Base64 decode)
-        const userStr = atob(decodeURIComponent(userBase64));
-        const parsedUser = JSON.parse(userStr);
+        const decodedUser = atob(decodeURIComponent(userBase64));
+        const parsedUser = JSON.parse(decodedUser);
 
-        console.log("✅ Decoded user from callback:", parsedUser);
+        console.log("✅ Decoded user:", parsedUser);
 
-        const result = loginWithGoogle(token, parsedUser);
+        if (token.startsWith("eyJ")) {
+          localStorage.setItem("token", token);
+          localStorage.setItem("user", JSON.stringify(parsedUser));
 
-        if (!result.success) {
-          console.error("❌ loginWithGoogle failed:", result);
-          setProcessing(false);
-          navigate("/login?error=google_auth_failed");
+          setUser(parsedUser);
+
+          console.log("✅ Stored backend JWT & updated context");
+          navigate("/dashboard");
+        } else {
+          console.error("❌ Invalid Google token (not backend JWT)");
+          alert("Invalid login response. Please try again.");
+          navigate("/login");
         }
-      } catch (err) {
-        console.error("❌ LoginSuccess decode error:", err);
-        setProcessing(false);
+      } catch (error) {
+        console.error("❌ Error decoding login data:", error);
         navigate("/login?error=google_auth_failed");
       }
     } else {
-      console.error("❌ Missing token or user in query");
-      setProcessing(false);
-      navigate("/login?error=google_auth_failed");
+      console.warn("⚠️ Missing login data in redirect URL");
+      navigate("/login");
     }
-  }, [loginWithGoogle, navigate]);
-
-  // ✅ When user context updates, navigate based on role
-  useEffect(() => {
-    if (user) {
-      console.log("🎉 User set in context:", user);
-      setProcessing(false);
-
-      if (user.role === "ADMIN") {
-        navigate("/dashboard");
-      } else {
-        navigate("/");
-      }
-    }
-  }, [user, navigate]);
+  }, [navigate, setUser]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen text-gray-700">
-      {processing ? "Logging you in with Google..." : "Redirecting..."}
+    <div className="flex flex-col items-center justify-center min-h-screen text-center">
+      <h2 className="text-2xl font-semibold mb-4">Signing you in...</h2>
+      <p className="text-gray-600">Please wait while we finalize your login.</p>
     </div>
   );
 }

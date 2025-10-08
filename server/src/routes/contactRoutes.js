@@ -3,7 +3,7 @@ import { prisma } from "../server.js";
 
 const router = express.Router();
 
-// ----------------- ADD MESSAGE -----------------
+// add message
 router.post("/", async (req, res) => {
   try {
     const { name, email, message } = req.body;
@@ -25,7 +25,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ----------------- GET ALL MESSAGES -----------------
+// get all messages
 router.get("/", async (req, res) => {
   try {
     const messages = await prisma.contact.findMany({
@@ -38,7 +38,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ----------------- MARK AS READ / UNREAD -----------------
+// mark as read/unread
 router.patch("/:id/read", async (req, res) => {
   try {
     const { id } = req.params;
@@ -56,7 +56,7 @@ router.patch("/:id/read", async (req, res) => {
   }
 });
 
-// ----------------- DELETE MESSAGE -----------------
+// delete message
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;

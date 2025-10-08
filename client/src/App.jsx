@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -9,7 +8,8 @@ import {
 import { UserProvider, useUser } from "./UserContext";
 import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ Add this
 
-// Public pages
+import SessionExpiredModal from "./components/SessionExpiredModal";
+
 import Layout from "./Layout";
 import Homepage from "./Pages/Homepage";
 import About from "./Pages/About";
@@ -19,7 +19,6 @@ import Rooms from "./Pages/Rooms";
 import RoomDetails from "./Pages/RoomDetails";
 import LoginSuccess from "./Pages/LoginSuccess";
 
-// Dashboard pages
 import DashboardLayout from "./Pages/Dashboard/DashboardLayout";
 import Dashboard from "./Pages/Dashboard/Dashboard";
 import FrontDesk from "./Pages/Dashboard/FrontDesk";
@@ -28,7 +27,6 @@ import RoomsDashboard from "./Pages/Dashboard/RoomsDashboard";
 import Deals from "./Pages/Dashboard/Deals";
 import Rate from "./Pages/Dashboard/Rate";
 
-// Protected Route
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useUser();
 
@@ -54,7 +52,6 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public routes */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Homepage />} />
         <Route path="rooms" element={<Rooms />} />
@@ -63,11 +60,9 @@ function AppRoutes() {
         <Route path="contact" element={<ContactUs />} />
       </Route>
 
-      {/* Login */}
       <Route path="/login" element={<Login />} />
       <Route path="/login-success" element={<LoginSuccess />} />
 
-      {/* Admin dashboard routes */}
       <Route
         path="/dashboard/*"
         element={
@@ -91,6 +86,7 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <UserProvider>
+        <SessionExpiredModal />
         <Router>
           <AppRoutes />
         </Router>

@@ -5,7 +5,6 @@ import apiService from "../../services/api";
 import { useUser } from "../../UserContext";
 import { Edit3, Trash2, Plus } from "lucide-react";
 
-// Fallback images
 import photo1 from "../../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
 import photo3 from "../../Images/room3.jpg";
@@ -47,7 +46,6 @@ function RoomsDashboard() {
 
   const { isAdmin, isManager, triggerRefresh } = useUser();
 
-  // ---------- Fetch Rooms + Bookings ----------
   useEffect(() => {
     const fetchRooms = async () => {
       try {
@@ -106,7 +104,6 @@ function RoomsDashboard() {
     fetchRooms();
   }, []);
 
-  // ---------- Image Helper ----------
   const getImage = (roomType) => {
     const match = allRooms.find((r) => r.type === roomType);
     if (match?.imageUrl?.startsWith("/uploads")) {
@@ -115,7 +112,6 @@ function RoomsDashboard() {
     return match?.imageUrl || fallbackByType[roomType] || photo1;
   };
 
-  // ---------- Delete Room ----------
   const handleDeleteRoom = async (roomId, roomNumber) => {
     if (!window.confirm(`Are you sure you want to delete room ${roomNumber}?`))
       return;
@@ -125,7 +121,6 @@ function RoomsDashboard() {
       setFeedback(`🗑️ Room ${roomNumber} deleted successfully.`);
       triggerRefresh();
 
-      // Update UI live
       if (selectedType) {
         setSelectedType((prev) => ({
           ...prev,
@@ -141,7 +136,6 @@ function RoomsDashboard() {
     }
   };
 
-  // ---------- Edit Room ----------
   const handleEditRoom = async () => {
     try {
       if (!form.id) throw new Error("Invalid room ID");
@@ -164,7 +158,6 @@ function RoomsDashboard() {
     }
   };
 
-  // ---------- Add Room ----------
   const handleAddRoom = async () => {
     try {
       const formData = new FormData();
@@ -177,7 +170,6 @@ function RoomsDashboard() {
       setFeedback("✅ Room added successfully!");
       triggerRefresh();
 
-      // Auto update selected type live (no click refresh needed)
       setRoomTypes((prev) =>
         prev.map((rt) =>
           rt.type === saved.type
@@ -223,7 +215,6 @@ function RoomsDashboard() {
 
   return (
     <div className="p-10 min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-semibold text-gray-800">
           Rooms Dashboard
@@ -238,7 +229,6 @@ function RoomsDashboard() {
         )}
       </div>
 
-      {/* Feedback */}
       {feedback && (
         <div className="bg-green-100 text-green-700 px-4 py-2 rounded mb-6 shadow">
           {feedback}
@@ -251,7 +241,6 @@ function RoomsDashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* LEFT: Room Type Summary */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           {roomTypes.map((rt, index) => (
             <motion.div
@@ -289,7 +278,6 @@ function RoomsDashboard() {
           ))}
         </div>
 
-        {/* RIGHT: Selected Room Type Details */}
         <div className="lg:col-span-2 bg-white shadow-md rounded-2xl p-8">
           {selectedType ? (
             <>
@@ -333,7 +321,6 @@ function RoomsDashboard() {
                 </p>
               </div>
 
-              {/* Live Stats */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6 border">
                 <p>
                   <strong>Total Rooms:</strong> {selectedType.total}
@@ -352,7 +339,6 @@ function RoomsDashboard() {
                 </p>
               </div>
 
-              {/* Features */}
               <div className="mb-6">
                 <strong className="block mb-2 text-gray-800">
                   Room Features:
@@ -375,7 +361,6 @@ function RoomsDashboard() {
                 )}
               </div>
 
-              {/* List of Rooms */}
               <div>
                 <h4 className="text-lg font-semibold mb-3 text-gray-800">
                   Rooms in this Category
@@ -404,7 +389,73 @@ function RoomsDashboard() {
                             <td className="px-3 py-2">{idx + 1}</td>
                             <td className="px-3 py-2">{room.roomNumber}</td>
                             <td className="px-3 py-2">{room.floor}</td>
-                            <td className="px-3 py-2">{room.cleanStatus}</td>
+                            <td className="px-3 py-2">
+                              <div
+                                className={`inline-block cursor-pointer px-3 py-1 rounded-full text-sm font-medium ${
+                                  room.cleanStatus === "CLEAN"
+                                    ? "bg-green-100 text-green-800"
+                                    : room.cleanStatus === "DIRTY"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-yellow-100 text-yellow-700"
+                                }`}
+                                onClick={(e) => {
+                                  const dropdown = e.currentTarget.nextSibling;
+                                  dropdown.classList.toggle("hidden");
+                                }}
+                              >
+                                {room.cleanStatus}
+                              </div>
+                              <select
+                                defaultValue={room.cleanStatus}
+                                onChange={async (e) => {
+                                  const newStatus = e.target.value;
+                                  console.log(
+                                    "🧹 Updating clean status for:",
+                                    room.id,
+                                    newStatus
+                                  );
+
+                                  try {
+                                    await apiService.request(
+                                      `/rooms/${room.id}/clean-status`,
+                                      {
+                                        method: "PATCH",
+                                        body: JSON.stringify({
+                                          cleanStatus: newStatus,
+                                        }),
+                                      }
+                                    );
+                                    setAllRooms((prev) =>
+                                      prev.map((r) =>
+                                        r.id === room.id
+                                          ? { ...r, cleanStatus: newStatus }
+                                          : r
+                                      )
+                                    );
+
+                                    setFeedback(
+                                      `🧹 Room ${room.roomNumber} marked as ${newStatus}.`
+                                    );
+                                    setTimeout(() => setFeedback(""), 2000);
+                                  } catch (err) {
+                                    console.error(
+                                      "Failed to update cleaning status:",
+                                      err
+                                    );
+                                    setError(
+                                      "Failed to update cleaning status."
+                                    );
+                                  } finally {
+                                    e.target.classList.add("hidden");
+                                  }
+                                }}
+                                className="hidden absolute z-10 bg-white border rounded px-2 py-1 mt-1 shadow"
+                              >
+                                <option value="CLEAN">CLEAN</option>
+                                <option value="DIRTY">DIRTY</option>
+                                <option value="IN_PROGRESS">IN PROGRESS</option>
+                              </select>
+                            </td>
                             {(isAdmin() || isManager()) && (
                               <td className="px-3 py-2 text-right">
                                 <button
@@ -432,7 +483,6 @@ function RoomsDashboard() {
         </div>
       </div>
 
-      {/* ---------- ADD ROOM MODAL ---------- */}
       <AnimatePresence>
         {showAddModal && (
           <motion.div
@@ -518,7 +568,6 @@ function RoomsDashboard() {
         )}
       </AnimatePresence>
 
-      {/* ---------- EDIT ROOM MODAL ---------- */}
       <AnimatePresence>
         {showEditModal && (
           <motion.div

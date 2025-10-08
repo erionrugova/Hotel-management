@@ -11,15 +11,14 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
     paymentType: "",
     startDate: "",
     endDate: "",
-    dealId: "", // ✅ added dealId
+    dealId: "",
   });
 
-  const [deals, setDeals] = useState([]); // ✅ list of deals
+  const [deals, setDeals] = useState([]);
   const [roomRate, setRoomRate] = useState(0);
   const [nights, setNights] = useState(0);
   const [finalPrice, setFinalPrice] = useState(0);
 
-  // ✅ Prefill form if editing
   useEffect(() => {
     if (booking) {
       setForm({
@@ -53,7 +52,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
     }
   }, [booking]);
 
-  // ✅ Fetch room rate when room changes
   useEffect(() => {
     const fetchRoomRate = async () => {
       if (form.roomId) {
@@ -72,7 +70,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
     fetchRoomRate();
   }, [form.roomId]);
 
-  // ✅ Fetch available deals
   useEffect(() => {
     const fetchDeals = async () => {
       try {
@@ -86,7 +83,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
     fetchDeals();
   }, []);
 
-  // ✅ Auto calculate nights and total price
   useEffect(() => {
     if (form.startDate && form.endDate && roomRate > 0) {
       const start = moment(form.startDate);
@@ -96,7 +92,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
 
       let total = validNights * roomRate;
 
-      // ✅ Apply deal discount if selected
       const selectedDeal = deals.find((d) => d.id === parseInt(form.dealId));
       if (selectedDeal && selectedDeal.discount > 0) {
         total -= (total * selectedDeal.discount) / 100;
@@ -125,7 +120,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Room Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Room
@@ -145,7 +139,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </select>
           </div>
 
-          {/* ✅ Deals Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Deal (optional)
@@ -164,7 +157,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </select>
           </div>
 
-          {/* Guest Info */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -194,7 +186,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </div>
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -209,7 +200,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             />
           </div>
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -239,7 +229,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </div>
           </div>
 
-          {/* Payment Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Payment Type
@@ -258,7 +247,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </select>
           </div>
 
-          {/* Price Summary */}
           {Number(roomRate) > 0 && (
             <div className="p-3 mt-2 bg-gray-50 rounded-md border text-sm text-gray-700">
               <p>
@@ -273,7 +261,6 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </div>
           )}
 
-          {/* Buttons */}
           <div className="flex justify-end gap-3 mt-4">
             <button
               type="button"

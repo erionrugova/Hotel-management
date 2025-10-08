@@ -1,10 +1,8 @@
-// src/Pages/ContactUs.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FaPhoneAlt, FaEnvelope, FaLocationArrow } from "react-icons/fa";
 import apiService from "../services/api";
 
-// Animation variants
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
   visible: (i = 0) => ({
@@ -68,7 +66,6 @@ function ContactUs() {
       animate="visible"
       exit={{ opacity: 0 }}
     >
-      {/* ------------------ HERO SECTION ------------------ */}
       <div className="relative h-[380px] md:h-[420px] overflow-hidden bg-gradient-to-b from-[#B9965D]/70 via-[#C5A880]/50 to-[#F8F6F1] flex items-center justify-center">
         <div className="text-center text-white px-6">
           <motion.h1
@@ -90,7 +87,6 @@ function ContactUs() {
         </div>
       </div>
 
-      {/* ------------------ CONTACT FORM ------------------ */}
       <motion.div
         className="flex justify-center items-center flex-1 py-16 px-4"
         variants={fadeUp}
@@ -179,7 +175,6 @@ function ContactUs() {
             </motion.button>
           </form>
 
-          {/* Contact Info */}
           <motion.div
             className="mt-10 text-center text-gray-600"
             initial={{ opacity: 0, y: 30 }}

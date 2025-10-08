@@ -27,7 +27,12 @@ function Deals() {
   const fetchDeals = async () => {
     try {
       const data = await apiService.getDeals();
-      setDeals(data || []);
+      if (!Array.isArray(data)) {
+        console.warn("⚠️ Deals response invalid:", data);
+        setDeals([]);
+        return;
+      }
+      setDeals(data);
     } catch (err) {
       console.error("Failed to fetch deals:", err);
     }
@@ -83,7 +88,6 @@ function Deals() {
     <div>
       <h2 className="text-2xl font-semibold mb-6">Deals</h2>
 
-      {/* Filters */}
       <div className="flex justify-between mb-4">
         <div className="space-x-2">
           <button
@@ -122,7 +126,6 @@ function Deals() {
         )}
       </div>
 
-      {/* Add Deal Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-96">
@@ -151,7 +154,6 @@ function Deals() {
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
             />
 
-            {/* ✅ Room type select */}
             <select
               className="border p-2 w-full mb-2"
               value={form.roomType}
@@ -187,7 +189,6 @@ function Deals() {
         </div>
       )}
 
-      {/* Edit Deal Modal */}
       {editModal && editForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-96">
@@ -220,7 +221,6 @@ function Deals() {
               }
             />
 
-            {/* ✅ Room type select */}
             <select
               className="border p-2 w-full mb-2"
               value={editForm.roomType}
@@ -259,7 +259,6 @@ function Deals() {
         </div>
       )}
 
-      {/* Deals Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-100">
@@ -305,7 +304,6 @@ function Deals() {
                       Edit
                     </button>
 
-                    {/* ✅ Toggle Deactivate / Reactivate */}
                     {d.status === "ONGOING" ? (
                       <button
                         onClick={() =>

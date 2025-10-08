@@ -9,7 +9,6 @@ import { Prisma } from "@prisma/client";
 
 const router = express.Router();
 
-// ------------------ MULTER SETUP ------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.resolve("uploads/rooms");
@@ -28,7 +27,6 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// ------------------ Utility ------------------
 async function getActiveBooking(roomId) {
   const today = new Date();
   return await prisma.booking.findFirst({
@@ -48,9 +46,7 @@ const PREFIX_MAP = {
   SUITE: 400,
 };
 
-// ------------------ PUBLIC ROUTES ------------------
-
-// ✅ Get all rooms
+// get all rooms
 router.get("/", async (req, res) => {
   try {
     const { type, startDate, endDate, guests } = req.query;
@@ -95,12 +91,12 @@ router.get("/", async (req, res) => {
 
     res.json(enriched);
   } catch (err) {
-    console.error("❌ Error fetching rooms:", err);
+    console.error("Error fetching rooms:", err);
     res.status(500).json({ error: "Failed to fetch rooms" });
   }
 });
 
-// ✅ Get single room
+// get single room
 router.get("/:id", async (req, res) => {
   try {
     const roomId = parseInt(req.params.id, 10);
@@ -130,9 +126,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ------------------ PROTECTED ROUTES ------------------
-
-// ✅ Create Room
+// create Room
 router.post(
   "/",
   authenticateToken,
@@ -142,7 +136,7 @@ router.post(
     body("type").isIn(["SINGLE", "DOUBLE", "DELUXE", "SUITE"]),
     body("price").isNumeric(),
     body("capacity").isInt({ min: 1 }),
-    body("floor").optional().isString(), // ✅ added validation for floor
+    body("floor").optional().isString(),
     body("cleanStatus").optional().isIn(["CLEAN", "DIRTY", "IN_PROGRESS"]),
     body("description").notEmpty(),
   ],
@@ -152,7 +146,6 @@ router.post(
       if (!errors.isEmpty())
         return res.status(400).json({ errors: errors.array() });
 
-      // ✅ include floor
       const { type, price, capacity, cleanStatus, description, floor } =
         req.body;
 
@@ -172,7 +165,7 @@ router.post(
       const newRoom = await prisma.room.create({
         data: {
           roomNumber: String(nextRoomNumber),
-          floor: floor || null, // ✅ store floor
+          floor: floor || null,
           type,
           price: new Prisma.Decimal(parseFloat(price)),
           capacity: Number(capacity),
@@ -182,16 +175,15 @@ router.post(
         },
       });
 
-      // ✅ return only the room itself (not wrapped)
       res.status(201).json(newRoom);
     } catch (err) {
-      console.error("❌ Prisma error creating room:", err);
+      console.error("Prisma error creating room:", err);
       res.status(500).json({ error: err.message || "Failed to create room" });
     }
   }
 );
 
-// ✅ Update Room
+// update Room
 router.put(
   "/:id",
   authenticateToken,
@@ -212,7 +204,7 @@ router.put(
       if (description) updateData.description = description;
       if (type) updateData.type = type;
       if (cleanStatus) updateData.cleanStatus = cleanStatus;
-      if (floor) updateData.floor = floor; // ✅ allow updating floor
+      if (floor) updateData.floor = floor;
 
       if (req.file) {
         updateData.imageUrl = `/uploads/rooms/${req.file.filename}`;
@@ -225,13 +217,13 @@ router.put(
 
       res.json({ message: "Room updated successfully", room: updated });
     } catch (err) {
-      console.error("❌ Error updating room:", err);
+      console.error("Error updating room:", err);
       res.status(500).json({ error: "Failed to update room" });
     }
   }
 );
 
-// ✅ Delete Room
+// delete Room
 router.delete(
   "/:id",
   authenticateToken,
@@ -251,8 +243,37 @@ router.delete(
       await prisma.room.delete({ where: { id: roomId } });
       res.json({ message: "Room deleted successfully" });
     } catch (err) {
-      console.error("❌ Error deleting room:", err);
+      console.error("Error deleting room:", err);
       res.status(500).json({ error: "Failed to delete room" });
+    }
+  }
+);
+
+// update cleaning status
+router.patch(
+  "/:id/clean-status",
+  authenticateToken,
+  authorize("ADMIN", "MANAGER"),
+  async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id, 10);
+      const { cleanStatus } = req.body;
+
+      if (!["CLEAN", "DIRTY", "IN_PROGRESS"].includes(cleanStatus)) {
+        return res.status(400).json({
+          error: "Invalid clean status. Must be CLEAN, DIRTY, or IN_PROGRESS.",
+        });
+      }
+
+      const updated = await prisma.room.update({
+        where: { id: roomId },
+        data: { cleanStatus },
+      });
+
+      res.json({ message: "Clean status updated successfully", room: updated });
+    } catch (err) {
+      console.error("Error updating clean status:", err);
+      res.status(500).json({ error: "Failed to update clean status" });
     }
   }
 );

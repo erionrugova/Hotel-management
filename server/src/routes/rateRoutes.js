@@ -6,7 +6,6 @@ import { body, validationResult } from "express-validator";
 const router = express.Router();
 router.use(authenticateToken);
 
-// Utility: compute availability
 async function computeAvailability(rate) {
   const activeBookings = await prisma.booking.count({
     where: {
@@ -22,7 +21,7 @@ async function computeAvailability(rate) {
   return Math.max(totalRooms - activeBookings, 0);
 }
 
-// -------------------- GET all rates --------------------
+// get all rates
 router.get("/", async (req, res) => {
   try {
     const rates = await prisma.rate.findMany({
@@ -44,7 +43,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// -------------------- CREATE rate --------------------
+// create rate
 router.post(
   "/",
   authorize("ADMIN", "MANAGER"),
@@ -111,7 +110,7 @@ router.post(
   }
 );
 
-// -------------------- UPDATE rate --------------------
+// update rate
 router.put(
   "/:id",
   authorize("ADMIN", "MANAGER"),
@@ -212,7 +211,7 @@ router.put(
   }
 );
 
-// -------------------- DELETE rate --------------------
+// delete rate
 router.delete("/:id", authorize("ADMIN"), async (req, res) => {
   try {
     await prisma.rate.delete({ where: { id: parseInt(req.params.id, 10) } });

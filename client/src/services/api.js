@@ -1,5 +1,3 @@
-// ✅ src/services/api.js
-
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:3000/api";
 
@@ -8,13 +6,7 @@ class ApiService {
     this.baseURL = API_BASE_URL;
   }
 
-  /**
-   * Main Request Handler
-   * - Automatically adds token if available.
-   * - Detects if payload is FormData (no Content-Type set).
-   * - Handles JSON parsing and unified error messages.
-   */
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, retry = true) {
     const url = `${this.baseURL}${endpoint}`;
     const token = localStorage.getItem("token");
 
@@ -23,20 +15,36 @@ class ApiService {
       ...options.headers,
     };
 
-    // ✅ Skip setting Content-Type if body is FormData (browser sets it)
     if (options.body && !(options.body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
     }
 
-    const config = { ...options, headers };
+    const config = {
+      ...options,
+      headers,
+      credentials: "include",
+    };
 
     try {
       const response = await fetch(url, config);
-
       let data = null;
       try {
         data = await response.json();
-      } catch (_) {}
+      } catch {}
+
+      // handle invalid token
+      if ((response.status === 401 || response.status === 403) && retry) {
+        console.warn("🔄 Access token expired or invalid, trying refresh...");
+        const refreshed = await this.refreshAccessToken();
+        if (refreshed) {
+          console.log("✅ Retrying original request after refresh...");
+          return this.request(endpoint, options, false);
+        } else {
+          console.error("❌ Refresh failed — forcing logout");
+          window.dispatchEvent(new Event("sessionExpired"));
+          throw new Error("Session expired. Please log in again.");
+        }
+      }
 
       if (!response.ok) {
         const msg =
@@ -49,12 +57,43 @@ class ApiService {
 
       return data;
     } catch (error) {
-      console.error("API request failed:", error);
-      throw error;
+      console.error("❌ API request failed:", error.message);
+      return false;
     }
   }
 
-  // ----------------- AUTH -----------------
+  // refresh token handler
+  async refreshAccessToken() {
+    try {
+      const response = await fetch(`${this.baseURL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn("⚠️ Refresh token missing or expired");
+          return false;
+        }
+        throw new Error("Refresh failed");
+      }
+
+      const data = await response.json();
+      if (data.accessToken) {
+        localStorage.setItem("token", data.accessToken);
+        console.log("✅ Access token refreshed successfully");
+        return true;
+      }
+
+      console.warn("⚠️ No accessToken returned during refresh");
+      return false;
+    } catch (error) {
+      console.error("❌ Failed to refresh access token:", error);
+      return false;
+    }
+  }
+
+  // auth
   login(credentials) {
     return this.request("/auth/login", {
       method: "POST",
@@ -76,7 +115,11 @@ class ApiService {
     });
   }
 
-  // ----------------- USERS -----------------
+  logout() {
+    return this.request("/auth/logout", { method: "POST" });
+  }
+
+  // users
   getUsers() {
     return this.request("/users");
   }
@@ -96,7 +139,7 @@ class ApiService {
     return this.request(`/users/${id}`, { method: "DELETE" });
   }
 
-  // ----------------- ROOMS (supports image upload) -----------------
+  // rooms
   getRooms(filters = {}) {
     const query = new URLSearchParams(filters).toString();
     return this.request(`/rooms${query ? `?${query}` : ""}`);
@@ -106,57 +149,35 @@ class ApiService {
     return this.request(`/rooms/${id}`);
   }
 
-  /**
-   * ✅ Create a new room (handles FormData for image upload)
-   */
   createRoom(roomData) {
     let body;
-
-    if (roomData instanceof FormData) {
-      body = roomData;
-    } else {
+    if (roomData instanceof FormData) body = roomData;
+    else {
       body = new FormData();
-      for (const key in roomData) {
-        if (roomData[key] !== undefined && roomData[key] !== null) {
+      for (const key in roomData)
+        if (roomData[key] !== undefined && roomData[key] !== null)
           body.append(key, roomData[key]);
-        }
-      }
     }
-
-    return this.request("/rooms", {
-      method: "POST",
-      body,
-    });
+    return this.request("/rooms", { method: "POST", body });
   }
 
-  /**
-   * ✅ Update room details or image
-   */
   updateRoom(id, roomData) {
     let body;
-
-    if (roomData instanceof FormData) {
-      body = roomData;
-    } else {
+    if (roomData instanceof FormData) body = roomData;
+    else {
       body = new FormData();
-      for (const key in roomData) {
-        if (roomData[key] !== undefined && roomData[key] !== null) {
+      for (const key in roomData)
+        if (roomData[key] !== undefined && roomData[key] !== null)
           body.append(key, roomData[key]);
-        }
-      }
     }
-
-    return this.request(`/rooms/${id}`, {
-      method: "PUT",
-      body,
-    });
+    return this.request(`/rooms/${id}`, { method: "PUT", body });
   }
 
   deleteRoom(id) {
     return this.request(`/rooms/${id}`, { method: "DELETE" });
   }
 
-  // ----------------- BOOKINGS -----------------
+  // bookings
   getBookings(filters = {}) {
     const query = new URLSearchParams(filters).toString();
     return this.request(`/bookings${query ? `?${query}` : ""}`);
@@ -195,7 +216,7 @@ class ApiService {
     return this.request(`/bookings/${id}`, { method: "DELETE" });
   }
 
-  // ----------------- RATES -----------------
+  // rates
   getRates() {
     return this.request("/rates");
   }
@@ -218,7 +239,7 @@ class ApiService {
     return this.request(`/rates/${id}`, { method: "DELETE" });
   }
 
-  // ----------------- DEALS -----------------
+  // deals
   getDeals() {
     return this.request("/deals");
   }
@@ -241,7 +262,7 @@ class ApiService {
     return this.request(`/deals/${id}`, { method: "DELETE" });
   }
 
-  // ----------------- GUESTS -----------------
+  // guests
   getGuests() {
     return this.request("/guests");
   }
@@ -253,7 +274,7 @@ class ApiService {
     });
   }
 
-  // ----------------- MESSAGES -----------------
+  // messages
   getMessages() {
     return this.request("/contact");
   }

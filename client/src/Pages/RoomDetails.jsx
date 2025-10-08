@@ -1,18 +1,16 @@
-// src/Pages/RoomDetails.jsx
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import apiService from "../services/api";
 import { useUser } from "../UserContext";
 import { GoogleLogin } from "@react-oauth/google";
 import { motion, AnimatePresence } from "framer-motion";
+import moment from "moment";
 
-// -------------------- IMAGES --------------------
 import photo1 from "../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
 import photo3 from "../Images/room3.jpg";
 import photo6 from "../Images/natalia-gusakova-EYoK3eVKIiQ-unsplash.jpg";
 
-// -------------------- ICONS --------------------
 import {
   Wifi,
   Tv,
@@ -28,7 +26,6 @@ import {
   Waves,
 } from "lucide-react";
 
-// -------------------- FALLBACKS --------------------
 const fallbackByType = {
   SINGLE: photo1,
   DOUBLE: photo6,
@@ -37,7 +34,6 @@ const fallbackByType = {
 };
 const getFallback = (type) => fallbackByType[type] || photo1;
 
-// -------------------- FEATURE ICONS --------------------
 const featureIcons = {
   wifi: Wifi,
   tv: Tv,
@@ -59,7 +55,7 @@ const featureIcons = {
 
 function RoomDetails() {
   const { id } = useParams();
-  const { user, refreshKey } = useUser(); // ✅ refreshKey added
+  const { user, refreshKey } = useUser();
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -67,6 +63,8 @@ function RoomDetails() {
   const [deals, setDeals] = useState([]);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [finalPrice, setFinalPrice] = useState(null);
+  const [availabilityCount, setAvailabilityCount] = useState(null);
+  const [nextAvailableDate, setNextAvailableDate] = useState(null);
 
   const [form, setForm] = useState({
     customerFirstName: "",
@@ -80,7 +78,6 @@ function RoomDetails() {
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
-  // -------------------- LOAD ROOM + DEALS --------------------
   useEffect(() => {
     const load = async () => {
       const roomId = parseInt(id, 10);
@@ -117,22 +114,8 @@ function RoomDetails() {
     };
 
     load();
-  }, [id, refreshKey]); // ✅ re-fetch when room edited in dashboard
+  }, [id, refreshKey]);
 
-  // -------------------- SMOOTH SCROLL --------------------
-  useEffect(() => {
-    if (!loading) {
-      const navbarHeight = 80;
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          const topOffset = navbarHeight / 1.5;
-          window.scrollTo({ top: topOffset, behavior: "smooth" });
-        }, 550);
-      });
-    }
-  }, [loading]);
-
-  // -------------------- PRICE CALCULATION --------------------
   const recalcPrice = (formData, dealId) => {
     if (!room?.price || !formData.startDate || !formData.endDate) return;
 
@@ -152,13 +135,53 @@ function RoomDetails() {
     setFinalPrice((nightlyRate * nights).toFixed(2));
   };
 
-  // -------------------- FORM HANDLING --------------------
+  const checkAvailability = async (startDate, endDate) => {
+    if (!room?.type || !startDate || !endDate) return;
+
+    try {
+      const res = await apiService.getRooms({
+        type: room.type,
+        startDate,
+        endDate,
+      });
+      setAvailabilityCount(res.length);
+
+      // Reset next available date when new check is made
+      setNextAvailableDate(null);
+      if (res.length === 0) {
+        // Try to get next available date via backend booking route
+        const bookingsRes = await apiService
+          .createBooking({
+            roomId: Number(id),
+            startDate,
+            endDate,
+            customerFirstName: "temp",
+            customerLastName: "temp",
+            customerEmail: "temp@email.com",
+            paymentType: "CASH",
+          })
+          .catch((err) => {
+            // if backend returns nextAvailable, capture it
+            const msg = err?.response?.data?.nextAvailable;
+            if (msg && msg.includes("from")) {
+              const next = msg.replace("Next available from ", "");
+              setNextAvailableDate(next);
+            }
+          });
+      }
+    } catch (err) {
+      console.error("❌ Error checking availability:", err);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     const updatedForm = { ...form, [name]: value };
     setForm(updatedForm);
-    if (["startDate", "endDate"].includes(name))
+    if (["startDate", "endDate"].includes(name)) {
       recalcPrice(updatedForm, selectedDeal);
+      checkAvailability(updatedForm.startDate, updatedForm.endDate);
+    }
   };
 
   const handleDealChange = (e) => {
@@ -169,7 +192,6 @@ function RoomDetails() {
     recalcPrice(updatedForm, dealId);
   };
 
-  // -------------------- BOOKING SUBMIT --------------------
   const submitBooking = async (e) => {
     e.preventDefault();
     setMsg({ type: "", text: "" });
@@ -194,12 +216,21 @@ function RoomDetails() {
       });
       setSelectedDeal(null);
       setFinalPrice(null);
+      setAvailabilityCount(null);
+      setNextAvailableDate(null);
     } catch (err) {
       console.error("❌ Booking error:", err);
-      setMsg({
-        type: "error",
-        text: "Booking failed. Please try again later.",
-      });
+      const nextAvail = err?.response?.data?.nextAvailable;
+      if (nextAvail)
+        setMsg({
+          type: "error",
+          text: `${err.response.data.error} (${nextAvail})`,
+        });
+      else
+        setMsg({
+          type: "error",
+          text: "Booking failed. Please try again later.",
+        });
     }
   };
 
@@ -216,7 +247,6 @@ function RoomDetails() {
     }
   };
 
-  // -------------------- IMAGE URL HANDLING --------------------
   const getImageUrl = (imgPath, type) => {
     if (imgPath?.startsWith("/uploads")) {
       return `http://localhost:3000${imgPath}`;
@@ -224,7 +254,6 @@ function RoomDetails() {
     return imgPath || getFallback(type);
   };
 
-  // -------------------- RENDER --------------------
   if (loading)
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
@@ -250,6 +279,41 @@ function RoomDetails() {
       </div>
     );
 
+  const renderAvailabilityMessage = () => {
+    if (availabilityCount === null) return null;
+    if (availabilityCount === 0)
+      return (
+        <div className="mt-2">
+          <p className="text-red-600 font-semibold">
+            ❌ Fully booked for selected dates
+          </p>
+          {nextAvailableDate && (
+            <p className="text-sm text-gray-600">
+              📅 Next available from{" "}
+              <span className="font-semibold text-[#B9965D]">
+                {nextAvailableDate}
+              </span>
+            </p>
+          )}
+        </div>
+      );
+    if (availabilityCount === 1)
+      return (
+        <p className="text-red-500 font-semibold mt-2">🔥 Only 1 room left!</p>
+      );
+    if (availabilityCount === 2)
+      return (
+        <p className="text-orange-500 font-semibold mt-2">
+          ⚠️ Only 2 rooms left!
+        </p>
+      );
+    return (
+      <p className="text-green-600 font-medium mt-2">
+        ✅ {availabilityCount} rooms available
+      </p>
+    );
+  };
+
   return (
     <motion.div
       className="flex flex-col min-h-screen bg-[#F8F6F1]"
@@ -258,7 +322,6 @@ function RoomDetails() {
       transition={{ duration: 0.6 }}
     >
       <main className="flex-1 container mx-auto px-6 md:px-16 lg:px-24 py-16 space-y-20">
-        {/* ---------------- IMAGE + ROOM INFO ---------------- */}
         <motion.div
           className="flex flex-col md:flex-row gap-14"
           initial={{ opacity: 0, y: 40 }}
@@ -280,17 +343,17 @@ function RoomDetails() {
             <p className="text-gray-700 leading-relaxed mb-6">
               {room.description}
             </p>
-            <p className="text-3xl font-semibold mb-8 text-[#C5A880]">
+            <p className="text-3xl font-semibold mb-2 text-[#C5A880]">
               ${room.price}/night
             </p>
+            {renderAvailabilityMessage()}
 
-            {/* ---------------- FEATURES ---------------- */}
             {room.amenities?.length > 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="bg-white/70 p-6 rounded-lg shadow-md"
+                className="bg-white/70 p-6 rounded-lg shadow-md mt-6"
               >
                 <h2 className="text-lg font-semibold mb-4 text-[#B89B5E]">
                   Room Features
@@ -313,7 +376,6 @@ function RoomDetails() {
               </motion.div>
             )}
 
-            {/* ---------------- BOOKING SECTION ---------------- */}
             <AnimatePresence>
               {!user ? (
                 <motion.div
@@ -357,7 +419,6 @@ function RoomDetails() {
                   transition={{ duration: 0.4 }}
                   className="mt-8 bg-white border rounded-lg p-6 shadow-md space-y-3"
                 >
-                  {/* ---------------- FORM INPUTS ---------------- */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input
                       type="text"
@@ -458,7 +519,6 @@ function RoomDetails() {
               )}
             </AnimatePresence>
 
-            {/* ---------------- FEEDBACK MESSAGE ---------------- */}
             {msg.text && (
               <motion.p
                 initial={{ opacity: 0 }}

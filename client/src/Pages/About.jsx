@@ -1,10 +1,8 @@
-// src/Pages/AboutUs.jsx
 import React from "react";
 import { motion } from "framer-motion";
 import { Bed, Wifi, WashingMachine, Tv, Coffee, Shield } from "lucide-react";
 import hotelImg from "../Images/fourSeasons.webp";
 
-// Animation Variants (faster transitions)
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
   visible: (i = 0) => ({
@@ -86,7 +84,6 @@ function AboutUs() {
       animate="visible"
       exit={{ opacity: 0 }}
     >
-      {/* HERO SECTION */}
       <div className="relative w-full h-[400px] md:h-[480px] overflow-hidden">
         <motion.img
           src={hotelImg}
@@ -113,7 +110,6 @@ function AboutUs() {
         </motion.div>
       </div>
 
-      {/* INTRO SECTION */}
       <motion.div
         className="max-w-4xl mx-auto px-6 md:px-12 lg:px-20 py-20 text-center"
         variants={fadeUp}
@@ -131,7 +127,6 @@ function AboutUs() {
         </p>
       </motion.div>
 
-      {/* AMENITIES SECTION */}
       <div className="max-w-3xl mx-auto px-6 md:px-12 lg:px-20 pb-24 space-y-16">
         {amenities.map((item, i) => (
           <motion.div
@@ -152,7 +147,6 @@ function AboutUs() {
         ))}
       </div>
 
-      {/* CLOSING QUOTE */}
       <motion.div
         className="text-center pb-16"
         initial={{ opacity: 0, y: 30 }}

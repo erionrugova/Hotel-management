@@ -28,7 +28,7 @@ function DashboardSidebar() {
   return (
     <div className="w-64 bg-gray-900 text-gray-100 h-screen fixed top-0 left-0 flex flex-col">
       <div className="p-4 text-xl font-bold border-b border-gray-800">
-        Hotel Admin
+        Four Seasons Hotel
       </div>
       <nav className="flex-1 p-2">
         {navItems.map((item) => (

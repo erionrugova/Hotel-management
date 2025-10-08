@@ -1,6 +1,7 @@
-// src/Pages/Dashboard/Dashboard.jsx
 import { useState, useEffect } from "react";
 import { useUser } from "../../UserContext";
+import { useNavigate } from "react-router-dom";
+import { Home } from "lucide-react";
 import { Card, CardContent } from "../../components/card";
 import apiService from "../../services/api";
 import {
@@ -18,10 +19,13 @@ import {
   Area,
 } from "recharts";
 import { motion } from "framer-motion";
-import moment from "moment";
+import moment from "moment-timezone";
+
+moment.tz.setDefault("Europe/Belgrade");
 
 function Dashboard() {
   const { user, refreshFlag } = useUser();
+  const navigate = useNavigate();
 
   const statLabels = {
     checkIn: "Today's Check-ins",
@@ -48,7 +52,7 @@ function Dashboard() {
   const [occupancyData, setOccupancyData] = useState([]);
   const [messages, setMessages] = useState([]);
   const [roomTypeChart, setRoomTypeChart] = useState([]);
-  const [revenueData, setRevenueData] = useState([]); // ✅ New state for revenue
+  const [revenueData, setRevenueData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomPeriod, setRoomPeriod] = useState("today");
   const [selectedYear, setSelectedYear] = useState(moment().year());
@@ -66,58 +70,65 @@ function Dashboard() {
             apiService.getMessages(),
           ]);
 
-        const today = moment().startOf("day");
+        const today = moment.tz("Europe/Belgrade").startOf("day");
         const tomorrow = moment(today).add(1, "day");
         const weekStart = moment(today).startOf("week");
         const weekEnd = moment(today).endOf("week");
 
-        // ---------------- STATS ----------------
+        // Stats
         const confirmedBookings = bookingsData.filter(
           (b) => b.status === "CONFIRMED"
         );
 
         const todayCheckIns = confirmedBookings.filter((b) =>
-          moment(b.startDate).isSame(today, "day")
+          moment.tz(b.startDate, "Europe/Belgrade").isSame(today, "day")
         );
         const todayCheckOuts = confirmedBookings.filter((b) =>
-          moment(b.endDate).isSame(today, "day")
+          moment.tz(b.endDate, "Europe/Belgrade").isSame(today, "day")
         );
 
-        // ✅ Guests currently in hotel
+        // Guests currently in hotel
         const inHotel = guestsData.filter((g) => {
           const booking = g.booking || g.Booking;
           if (!booking) return false;
+          const start = moment.tz(booking.startDate, "Europe/Belgrade");
+          const end = moment.tz(booking.endDate, "Europe/Belgrade");
           const isActive =
-            moment(booking.startDate).isSameOrBefore(today) &&
-            moment(booking.endDate).isSameOrAfter(today);
+            start.isSameOrBefore(today) && end.isSameOrAfter(today);
           return g.status === "CONFIRMED" && isActive;
         }).length;
 
-        // ✅ Occupied & available rooms
+        // Occupied and available rooms
         const occupiedRooms = roomsData.filter((room) =>
-          room.bookings.some(
-            (b) =>
+          room.bookings.some((b) => {
+            const start = moment.tz(b.startDate, "Europe/Belgrade");
+            const end = moment.tz(b.endDate, "Europe/Belgrade");
+            return (
               b.status === "CONFIRMED" &&
-              moment(b.startDate).isSameOrBefore(today) &&
-              moment(b.endDate).isSameOrAfter(today)
-          )
+              start.isSameOrBefore(today) &&
+              end.isSameOrAfter(today)
+            );
+          })
         ).length;
 
         const availableRooms = roomsData.length - occupiedRooms;
 
-        // ✅ Tomorrow occupancy
-        const tomorrowOccupancy = confirmedBookings.filter(
-          (b) =>
-            moment(b.startDate).isSameOrBefore(tomorrow, "day") &&
-            moment(b.endDate).isSameOrAfter(tomorrow, "day")
-        ).length;
+        // Tomorrow occupancy
+        const tomorrowOccupancy = confirmedBookings.filter((b) => {
+          const start = moment.tz(b.startDate, "Europe/Belgrade");
+          const end = moment.tz(b.endDate, "Europe/Belgrade");
+          return (
+            start.isSameOrBefore(tomorrow, "day") &&
+            end.isSameOrAfter(tomorrow, "day")
+          );
+        }).length;
 
-        // ✅ This week occupancy
-        const weekOccupancy = confirmedBookings.filter(
-          (b) =>
-            moment(b.startDate).isBefore(weekEnd) &&
-            moment(b.endDate).isAfter(weekStart)
-        ).length;
+        // This week occupancy
+        const weekOccupancy = confirmedBookings.filter((b) => {
+          const start = moment.tz(b.startDate, "Europe/Belgrade");
+          const end = moment.tz(b.endDate, "Europe/Belgrade");
+          return start.isBefore(weekEnd) && end.isAfter(weekStart);
+        }).length;
 
         setStats({
           checkIn: todayCheckIns.length,
@@ -132,27 +143,35 @@ function Dashboard() {
         setBookings(bookingsData);
         setMessages(contactData);
 
-        // ---------------- YEAR FILTER OPTIONS ----------------
         const years = [
-          ...new Set(bookingsData.map((b) => moment(b.startDate).year())),
+          ...new Set(
+            bookingsData.map((b) =>
+              moment.tz(b.startDate, "Europe/Belgrade").year()
+            )
+          ),
         ].sort((a, b) => b - a);
         setAvailableYears(years);
 
-        // ---------------- OCCUPANCY STATS ----------------
+        // Occupancy stats
         const totalRooms = roomsData.length || 1;
         const months = Array.from({ length: 12 }, (_, i) => {
-          const monthStart = moment()
+          const monthStart = moment
+            .tz("Europe/Belgrade")
             .year(selectedYear)
             .month(i)
             .startOf("month");
-          const monthEnd = moment().year(selectedYear).month(i).endOf("month");
+          const monthEnd = moment
+            .tz("Europe/Belgrade")
+            .year(selectedYear)
+            .month(i)
+            .endOf("month");
           const daysInMonth = monthEnd.date();
           const totalRoomDays = totalRooms * daysInMonth;
           let occupiedRoomDays = 0;
 
           confirmedBookings.forEach((b) => {
-            const bookingStart = moment(b.startDate);
-            const bookingEnd = moment(b.endDate);
+            const bookingStart = moment.tz(b.startDate, "Europe/Belgrade");
+            const bookingEnd = moment.tz(b.endDate, "Europe/Belgrade");
             if (
               bookingStart.isBefore(monthEnd) &&
               bookingEnd.isAfter(monthStart)
@@ -178,20 +197,26 @@ function Dashboard() {
 
         setOccupancyData(months);
 
-        // ---------------- ✅ REVENUE DATA ----------------
         const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
-          const monthStart = moment()
+          const monthStart = moment
+            .tz("Europe/Belgrade")
             .year(selectedYear)
             .month(i)
             .startOf("month");
-          const monthEnd = moment().year(selectedYear).month(i).endOf("month");
+          const monthEnd = moment
+            .tz("Europe/Belgrade")
+            .year(selectedYear)
+            .month(i)
+            .endOf("month");
 
           const total = bookingsData
             .filter(
               (b) =>
                 b.status === "CONFIRMED" &&
                 b.paymentStatus === "PAID" &&
-                moment(b.startDate).isBetween(monthStart, monthEnd, null, "[]")
+                moment
+                  .tz(b.startDate, "Europe/Belgrade")
+                  .isBetween(monthStart, monthEnd, null, "[]")
             )
             .reduce((sum, b) => sum + (parseFloat(b.finalPrice) || 0), 0);
 
@@ -203,7 +228,7 @@ function Dashboard() {
 
         setRevenueData(monthlyRevenue);
 
-        // ---------------- ROOM TYPES ----------------
+        // Room types
         const roomTypes = {};
         roomsData.forEach((room) => {
           if (!roomTypes[room.type]) {
@@ -217,8 +242,8 @@ function Dashboard() {
         });
 
         const isActiveBooking = (booking) => {
-          const start = moment(booking.startDate);
-          const end = moment(booking.endDate);
+          const start = moment.tz(booking.startDate, "Europe/Belgrade");
+          const end = moment.tz(booking.endDate, "Europe/Belgrade");
           if (roomPeriod === "today")
             return start.isSameOrBefore(today) && end.isSameOrAfter(today);
           if (roomPeriod === "tomorrow")
@@ -246,11 +271,11 @@ function Dashboard() {
           }))
         );
 
-        // ---------------- PIE CHART FIX ----------------
+        // Pie chart
         const activeBookings = bookingsData.filter((b) => {
           if (b.status !== "CONFIRMED" || !b.room?.type) return false;
-          const start = moment(b.startDate);
-          const end = moment(b.endDate);
+          const start = moment.tz(b.startDate, "Europe/Belgrade");
+          const end = moment.tz(b.endDate, "Europe/Belgrade");
           return chartMode === "active"
             ? start.isSameOrBefore(today) && end.isSameOrAfter(today)
             : true;
@@ -316,11 +341,15 @@ function Dashboard() {
 
   const colorArray = Object.values(COLORS);
 
-  const todayCheckIns = bookings.filter((b) =>
-    moment(b.startDate).isSame(moment(), "day")
+  const todayCheckIns = bookings.filter(
+    (b) =>
+      b.status === "CONFIRMED" &&
+      moment.tz(b.startDate, "Europe/Belgrade").isSame(moment(), "day")
   );
-  const todayCheckOuts = bookings.filter((b) =>
-    moment(b.endDate).isSame(moment(), "day")
+  const todayCheckOuts = bookings.filter(
+    (b) =>
+      b.status === "CONFIRMED" &&
+      moment.tz(b.endDate, "Europe/Belgrade").isSame(moment(), "day")
   );
 
   return (
@@ -330,11 +359,20 @@ function Dashboard() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
     >
-      <h1 className="text-2xl font-semibold mb-6">
-        {user ? `Welcome back, ${user.username}` : "Dashboard"}
-      </h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold mb-6">
+          {user ? `Welcome back, ${user.username}` : "Dashboard"}
+        </h1>
 
-      {/* ✅ Today’s Activity */}
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition-all duration-300"
+        >
+          <Home size={18} />
+          Back to Homepage
+        </button>
+      </div>
+
       <div className="bg-white rounded-lg shadow p-6 mb-10">
         <h2 className="text-xl font-semibold mb-4">Today’s Activity</h2>
         <div className="space-y-4">
@@ -353,7 +391,7 @@ function Dashboard() {
                     {b.customerFirstName} {b.customerLastName}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {moment(b.startDate).format("HH:mm")}
+                    {moment.tz(b.startDate, "Europe/Belgrade").format("HH:mm")}
                   </span>
                 </motion.div>
               ))}
@@ -368,7 +406,7 @@ function Dashboard() {
                     {b.customerFirstName} {b.customerLastName}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {moment(b.endDate).format("HH:mm")}
+                    {moment.tz(b.endDate, "Europe/Belgrade").format("HH:mm")}
                   </span>
                 </motion.div>
               ))}
@@ -377,7 +415,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* -------- STATS CARDS -------- */}
       <motion.div
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6 mb-8"
         initial={{ opacity: 0, y: 20 }}
@@ -399,7 +436,6 @@ function Dashboard() {
         ))}
       </motion.div>
 
-      {/* -------- ROOM TYPES -------- */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Room Types</h2>
         <div className="flex gap-3">
@@ -422,7 +458,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* -------- ROOM TYPE CARDS -------- */}
       <motion.div
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         initial={{ opacity: 0 }}
@@ -483,7 +518,6 @@ function Dashboard() {
         )}
       </motion.div>
 
-      {/* -------- OCCUPANCY STATS -------- */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Occupancy Statistics</h2>
         {availableYears.length > 0 && (
@@ -525,7 +559,6 @@ function Dashboard() {
         </ResponsiveContainer>
       </div>
 
-      {/* -------- 💰 REVENUE CHART -------- */}
       <div className="flex justify-between items-center mb-4 mt-12">
         <h2 className="text-xl font-semibold">Revenue Overview</h2>
         <select
@@ -580,7 +613,6 @@ function Dashboard() {
         </ResponsiveContainer>
       </div>
 
-      {/* -------- PIE CHART -------- */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Bookings by Room Type</h2>
         <button
@@ -650,7 +682,6 @@ function Dashboard() {
         </ResponsiveContainer>
       </motion.div>
 
-      {/* -------- GUEST MESSAGES -------- */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           Recent Guest Messages

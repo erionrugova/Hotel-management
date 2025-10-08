@@ -1,4 +1,3 @@
-// src/routes/userRoutes.js
 import express from "express";
 import { body, validationResult } from "express-validator";
 import { prisma } from "../server.js";
@@ -6,10 +5,9 @@ import { authenticateToken, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Apply authentication to all routes
 router.use(authenticateToken);
 
-// Get all users (Admin/Manager only)
+// get all users (Admin/Manager only)
 router.get("/", authorize("ADMIN", "MANAGER"), async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -28,12 +26,12 @@ router.get("/", authorize("ADMIN", "MANAGER"), async (req, res) => {
   }
 });
 
-// Get user by ID
+// get user by ID
 router.get("/:id", async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
 
-    // Users can only view their own profile unless they're admin/manager
+    // users can only view their own profile unless they're admin/manager
     if (
       req.user.id !== userId &&
       !["ADMIN", "MANAGER"].includes(req.user.role)
@@ -62,7 +60,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Update user (Admin/Manager only or own profile)
+// update user (Admin/Manager only or own profile)
 router.put(
   "/:id",
   [
@@ -85,7 +83,7 @@ router.put(
       const userId = parseInt(req.params.id);
       const { username, role } = req.body;
 
-      // Check permissions
+      // check permissions
       const canUpdateRole = ["ADMIN", "MANAGER"].includes(req.user.role);
       const isOwnProfile = req.user.id === userId;
 
@@ -93,7 +91,7 @@ router.put(
         return res.status(403).json({ error: "Access denied" });
       }
 
-      // Only admin/manager can change roles
+      // only admin/manager can change roles
       if (role && !canUpdateRole) {
         return res
           .status(403)
@@ -128,12 +126,12 @@ router.put(
   }
 );
 
-// Delete user (Admin only)
+// delete user (Admin only)
 router.delete("/:id", authorize("ADMIN"), async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
 
-    // Prevent self-deletion
+    // prevent self-deletion
     if (req.user.id === userId) {
       return res.status(400).json({ error: "Cannot delete your own account" });
     }

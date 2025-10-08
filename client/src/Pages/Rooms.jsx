@@ -2,9 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import apiService from "../services/api";
-import { useUser } from "../UserContext"; // ✅ to trigger re-fetch after edits
+import { useUser } from "../UserContext";
 
-// ---------- IMAGES ----------
 import photo1 from "../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
 import photo3 from "../Images/room3.jpg";
@@ -17,7 +16,6 @@ const fallbackByType = {
   SUITE: photo2,
 };
 
-// ---------- COMPONENT ----------
 function Rooms() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,9 +26,8 @@ function Rooms() {
     endDate: "",
     guests: "",
   });
-  const { refreshKey } = useUser(); // ✅ triggers update when dashboard changes something
+  const { refreshKey } = useUser();
 
-  // ---------- Fetch rooms ----------
   useEffect(() => {
     const fetchRooms = async () => {
       try {
@@ -43,22 +40,19 @@ function Rooms() {
       }
     };
     fetchRooms();
-  }, [filters, refreshKey]); // ✅ re-fetch when dashboard edits something
+  }, [filters, refreshKey]);
 
-  // ---------- Parallax effect ----------
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // ---------- Helpers ----------
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Properly get image URL (uploaded or fallback)
   const getRoomImage = (room) => {
     if (room?.imageUrl?.startsWith("/uploads")) {
       return `http://localhost:3000${room.imageUrl}`;
@@ -66,7 +60,6 @@ function Rooms() {
     return room?.imageUrl || fallbackByType[room?.type] || photo1;
   };
 
-  // ✅ Make sure only one room per type shows (unique types)
   const uniqueRooms = Object.values(
     rooms.reduce((acc, room) => {
       if (!acc[room.type]) acc[room.type] = room;
@@ -74,13 +67,11 @@ function Rooms() {
     }, {})
   );
 
-  // ✅ Keep logical order
   const order = { SINGLE: 1, DOUBLE: 2, DELUXE: 3, SUITE: 4 };
   const orderedRooms = uniqueRooms.sort(
     (a, b) => (order[a.type] || 99) - (order[b.type] || 99)
   );
 
-  // ---------- Loading ----------
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-screen text-[#B9965D] text-xl">
@@ -88,10 +79,8 @@ function Rooms() {
       </div>
     );
 
-  // ---------- UI ----------
   return (
     <div className="min-h-screen bg-[#F8F6F1] overflow-hidden">
-      {/* ---------- HERO ---------- */}
       <div className="relative h-[320px] md:h-[380px] bg-gradient-to-b from-[#B9965D]/70 via-[#C5A880]/50 to-[#F8F6F1] flex items-center justify-center">
         <motion.div
           className="text-center text-white px-4"
@@ -108,7 +97,6 @@ function Rooms() {
         </motion.div>
       </div>
 
-      {/* ---------- FILTERS ---------- */}
       <motion.div
         className="max-w-5xl mx-auto bg-white mt-[-50px] shadow-xl rounded-2xl p-8 z-10 relative"
         initial={{ opacity: 0, y: 40 }}
@@ -160,7 +148,6 @@ function Rooms() {
         </div>
       </motion.div>
 
-      {/* ---------- ROOMS LIST ---------- */}
       <main className="container mx-auto space-y-24 px-8 py-20 flex flex-col items-center">
         {orderedRooms.map((room, index) => {
           const parallaxShift = (scrollY * 0.1 * (index + 1)) % 40;
@@ -182,10 +169,8 @@ function Rooms() {
               }}
               viewport={{ once: true }}
             >
-              {/* Hover Border Glow */}
               <div className="absolute inset-0 rounded-3xl border border-transparent group-hover:border-[#C5A880]/90 group-hover:shadow-[0_0_25px_rgba(197,168,128,0.35)] transition-all duration-700 pointer-events-none"></div>
 
-              {/* Image */}
               <div
                 className="relative w-full h-[340px] overflow-hidden shadow-[0_6px_20px_rgba(0,0,0,0.15)]"
                 style={{
@@ -207,7 +192,6 @@ function Rooms() {
                 </div>
               </div>
 
-              {/* Content */}
               <div className="p-10 text-center">
                 <motion.h3
                   className="text-3xl font-bold tracking-widest text-[#B89B5E] uppercase mb-4"

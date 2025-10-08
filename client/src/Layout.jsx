@@ -1,4 +1,3 @@
-// src/Layout.jsx
 import { Outlet } from "react-router-dom";
 import Header from "./Pages/components/header";
 

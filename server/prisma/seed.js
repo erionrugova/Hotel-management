@@ -1,11 +1,9 @@
-// prisma/seed.js
 import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
 import bcrypt from "bcryptjs";
 
 export const prisma = new PrismaClient();
 
-// Default room data with lowercase features
 const defaultRoomData = {
   SINGLE: {
     description: "Cozy single room with WiFi, workspace, and private bathroom.",
@@ -53,11 +51,10 @@ async function createUsers() {
     });
   }
 
-  console.log("✅ Users ensured");
+  console.log("Users ensured");
 }
 
 async function createFeatures() {
-  // Ensure lowercase feature names
   for (const type of Object.keys(defaultRoomData)) {
     const { features } = defaultRoomData[type];
     for (const f of features) {
@@ -79,7 +76,7 @@ async function createFeatures() {
     }
   }
 
-  console.log("✅ Features + RoomTypeFeature seeded (lowercased)");
+  console.log("Features + RoomTypeFeature seeded (lowercased)");
 }
 
 async function createRoomsDev() {
@@ -163,7 +160,7 @@ async function createRoomsDev() {
     }
   }
 
-  console.log("✅ Rooms seeded + features linked");
+  console.log("Rooms seeded + features linked");
 }
 
 async function createRates() {
@@ -187,14 +184,14 @@ async function createRates() {
     });
   }
 
-  console.log("✅ Rates seeded");
+  console.log("Rates seeded");
 }
 
 async function main() {
-  console.log("🌱 Starting seed...");
+  console.log("Starting seed...");
 
   if (process.env.NODE_ENV === "development") {
-    console.log("⚙️ Development mode: resetting...");
+    console.log("Development mode: resetting...");
 
     await prisma.booking.deleteMany();
     await prisma.rate.deleteMany();
@@ -209,18 +206,18 @@ async function main() {
     await createRoomsDev();
     await createRates();
   } else {
-    console.log("⚙️ Production mode: only ensuring users, features, and rates");
+    console.log("Production mode: only ensuring users, features, and rates");
     await createUsers();
     await createFeatures();
     await createRates();
   }
 
-  console.log("🎉 Seeding complete!");
+  console.log("Seeding complete!");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Error seeding database:", e);
+    console.error("Error seeding database:", e);
     process.exit(1);
   })
   .finally(async () => {
