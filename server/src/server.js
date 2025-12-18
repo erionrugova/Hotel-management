@@ -42,7 +42,12 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS configuration
-const allowedOrigins = ["http://localhost:3001", "http://127.0.0.1:3001"];
+const allowedOrigins = [
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
+  "http://localhost:3004",
+  "http://127.0.0.1:3004",
+];
 
 app.use(
   cors({
