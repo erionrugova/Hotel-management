@@ -132,6 +132,7 @@ export const UserProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    setUser,
     login,
     loginWithGoogle,
     logout,

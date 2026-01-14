@@ -52,13 +52,23 @@ class ApiService {
           data?.message ||
           (Array.isArray(data?.errors) && data.errors[0]?.msg) ||
           `HTTP ${response.status}`;
-        throw new Error(msg);
+        // Create an error object that includes response data for proper error handling
+        const error = new Error(msg);
+        error.response = { data, status: response.status };
+        throw error;
       }
 
       return data;
     } catch (error) {
       console.error("❌ API request failed:", error.message);
-      return false;
+      // If it's already an error with response data, re-throw it
+      if (error.response) {
+        throw error;
+      }
+      // Otherwise, create a proper error object
+      const apiError = new Error(error.message || "API request failed");
+      apiError.response = { data: { error: error.message }, status: 500 };
+      throw apiError;
     }
   }
 

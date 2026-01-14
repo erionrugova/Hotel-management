@@ -25,7 +25,14 @@ function LoginSuccess() {
           setUser(parsedUser);
 
           console.log("✅ Stored backend JWT & updated context");
-          navigate("/dashboard");
+          
+          // Force full page reload to ensure UserContext properly restores session
+          // This is necessary for OAuth callbacks to work correctly
+          if (parsedUser.role === "ADMIN") {
+            window.location.href = "/dashboard";
+          } else {
+            window.location.href = "/";
+          }
         } else {
           console.error("❌ Invalid Google token (not backend JWT)");
           alert("Invalid login response. Please try again.");

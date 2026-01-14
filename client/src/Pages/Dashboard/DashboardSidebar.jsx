@@ -5,6 +5,7 @@ import {
   Users,
   Percent,
   DollarSign,
+  Receipt,
 } from "lucide-react";
 
 function DashboardSidebar() {
@@ -23,6 +24,7 @@ function DashboardSidebar() {
     { name: "Guests", path: "/dashboard/guests", icon: <Users size={18} /> },
     { name: "Deals", path: "/dashboard/deals", icon: <Percent size={18} /> },
     { name: "Rates", path: "/dashboard/rates", icon: <DollarSign size={18} /> },
+    { name: "Refunds", path: "/dashboard/refunds", icon: <Receipt size={18} /> },
   ];
 
   return (

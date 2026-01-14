@@ -14,6 +14,7 @@ import Layout from "./Layout";
 import Homepage from "./Pages/Homepage";
 import About from "./Pages/About";
 import Login from "./Pages/Login";
+import Signup from "./Pages/Signup";
 import ContactUs from "./Pages/ContactUs";
 import Rooms from "./Pages/Rooms";
 import RoomDetails from "./Pages/RoomDetails";
@@ -26,6 +27,7 @@ import Guests from "./Pages/Dashboard/Guests";
 import RoomsDashboard from "./Pages/Dashboard/RoomsDashboard";
 import Deals from "./Pages/Dashboard/Deals";
 import Rate from "./Pages/Dashboard/Rate";
+import Refunds from "./Pages/Dashboard/Refunds";
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useUser();
@@ -61,6 +63,7 @@ function AppRoutes() {
       </Route>
 
       <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
       <Route path="/login-success" element={<LoginSuccess />} />
 
       <Route
@@ -77,6 +80,7 @@ function AppRoutes() {
         <Route path="rooms" element={<RoomsDashboard />} />
         <Route path="deals" element={<Deals />} />
         <Route path="rates" element={<Rate />} />
+        <Route path="refunds" element={<Refunds />} />
       </Route>
     </Routes>
   );

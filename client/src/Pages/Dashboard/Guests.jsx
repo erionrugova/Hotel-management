@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
-import moment from "moment";
+import moment from "moment-timezone";
 import apiService from "../../services/api";
 import { useUser } from "../../UserContext";
+import RefundModal from "../../components/RefundModal";
+
+moment.tz.setDefault("Europe/Belgrade");
 
 function Guests() {
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [refundModal, setRefundModal] = useState({ isOpen: false, guest: null, refundInfo: null });
+  const { triggerRefresh, refreshFlag } = useUser();
 
   const fetchGuests = async () => {
     try {
@@ -21,14 +26,91 @@ function Guests() {
 
   useEffect(() => {
     fetchGuests();
-  }, []);
+  }, [refreshFlag]); // Refresh when refreshFlag changes (when bookings are created/updated)
 
   const handleStatusChange = async (id, newStatus) => {
     try {
+      const guest = guests.find((g) => g.id === id);
+      
+      // If changing to COMPLETED, show refund modal for early check-out
+      if (newStatus === "COMPLETED" && guest?.booking) {
+        const today = moment.tz("Europe/Belgrade");
+        const originalEnd = moment.tz(guest.booking.endDate, "Europe/Belgrade");
+        
+      // Check if it's early check-out
+      if (today.isBefore(originalEnd, "day")) {
+        // Pre-calculate refund estimate for display
+        const start = moment.tz(guest.booking.startDate, "Europe/Belgrade");
+        const totalNights = originalEnd.diff(start, "days");
+        const unusedNights = originalEnd.diff(today, "days");
+        const pricePerNight = totalNights > 0 
+          ? parseFloat(guest.booking.finalPrice || 0) / totalNights 
+          : 0;
+        
+        setRefundModal({ 
+          isOpen: true, 
+          guest: { ...guest, booking: guest.booking },
+          refundInfo: {
+            unusedNights,
+            estimatedRefund: unusedNights * pricePerNight,
+          }
+        });
+        return; // Don't update yet, wait for modal confirmation
+      }
+      }
+      
+      // Normal status change
       await apiService.updateGuestStatus(id, { status: newStatus });
       await fetchGuests();
+      triggerRefresh(); // Refresh dashboard data
     } catch (err) {
       console.error("Failed to update guest status:", err);
+    }
+  };
+
+  const handleConfirmCheckout = async (earlyCheckoutDate) => {
+    try {
+      const { guest } = refundModal;
+      
+      const response = await apiService.updateGuestStatus(guest.id, {
+        status: "COMPLETED",
+        earlyCheckoutDate,
+      });
+
+      // Show refund info if available
+      if (response && response.refund) {
+        const refund = response.refund;
+        
+        // Update modal with final refund info
+        setRefundModal(prev => ({ 
+          ...prev, 
+          refundInfo: {
+            ...refund,
+            refundAmount: refund.refundAmount || 0,
+            policy: refund.policy || "N/A",
+            unusedNights: refund.unusedNights || 0,
+            reason: refund.reason || "",
+            refundable: refund.refundable || false,
+          }
+        }));
+        
+        // Show success message
+        const message = refund.refundable
+          ? `Check-out confirmed!\n\nRefund Amount: $${refund.refundAmount.toFixed(2)}\nPolicy: ${refund.policy}\nUnused Nights: ${refund.unusedNights}\n\n${refund.reason}`
+          : `Check-out confirmed!\n\n${refund.reason}`;
+        
+        alert(message);
+      } else {
+        alert("Check-out confirmed!");
+      }
+      
+      setRefundModal({ isOpen: false, guest: null, refundInfo: null });
+      // Refresh guests and trigger dashboard refresh
+      await fetchGuests();
+      triggerRefresh(); // Refresh dashboard and front desk data
+    } catch (err) {
+      console.error("Failed to process check-out:", err);
+      alert("Failed to process check-out. Please try again.");
     }
   };
 
@@ -45,15 +127,21 @@ function Guests() {
 
   if (loading) return <div className="p-6">Loading guests...</div>;
 
-  const today = moment().startOf("day");
+  const today = moment.tz("Europe/Belgrade").startOf("day");
 
   const computedGuests = guests.map((g) => {
-    const checkIn = moment(g.booking?.startDate || g.checkIn);
-    const checkOut = moment(g.booking?.endDate || g.checkOut);
+    const checkIn = moment.tz(g.booking?.startDate || g.checkIn, "Europe/Belgrade");
+    const checkOut = moment.tz(g.booking?.endDate || g.checkOut, "Europe/Belgrade");
 
     let stayStatus = "UPCOMING";
-    if (today.isBetween(checkIn, checkOut, "day", "[]")) stayStatus = "ACTIVE";
-    else if (today.isAfter(checkOut, "day")) stayStatus = "CHECKED_OUT";
+    // If status is COMPLETED, consider it checked out
+    if (g.status === "COMPLETED" || g.booking?.status === "COMPLETED") {
+      stayStatus = "CHECKED_OUT";
+    } else if (today.isSameOrBefore(checkOut, "day") && today.isSameOrAfter(checkIn, "day")) {
+      stayStatus = "ACTIVE";
+    } else if (today.isAfter(checkOut, "day")) {
+      stayStatus = "CHECKED_OUT";
+    }
 
     return { ...g, stayStatus, checkIn, checkOut };
   });
@@ -100,12 +188,13 @@ function Guests() {
               <th className="p-3">Stay Status</th>
               <th className="p-3">Status</th>
               <th className="p-3">Payment</th>
+              <th className="p-3">Refund</th>
             </tr>
           </thead>
           <tbody>
             {filteredGuests.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-4 text-center text-gray-500">
+                <td colSpan={10} className="p-4 text-center text-gray-500">
                   No guests found.
                 </td>
               </tr>
@@ -173,11 +262,44 @@ function Guests() {
                     <option value="PAID">Paid</option>
                   </select>
                 </td>
+                <td className="p-3">
+                  {g.status === "COMPLETED" && g.booking && (() => {
+                    const originalEnd = moment.tz(g.booking.endDate, "Europe/Belgrade");
+                    const actualEnd = moment.tz(g.booking.updatedAt || g.booking.endDate, "Europe/Belgrade");
+                    const isEarlyCheckout = actualEnd.isBefore(originalEnd, "day");
+                    
+                    if (isEarlyCheckout) {
+                      return (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                          Early Check-out
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                        —
+                      </span>
+                    );
+                  })()}
+                  {g.status !== "COMPLETED" && (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                      —
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <RefundModal
+        isOpen={refundModal.isOpen}
+        onClose={() => setRefundModal({ isOpen: false, guest: null, refundInfo: null })}
+        onConfirm={handleConfirmCheckout}
+        booking={refundModal.guest?.booking}
+        refundInfo={refundModal.refundInfo}
+      />
     </div>
   );
 }

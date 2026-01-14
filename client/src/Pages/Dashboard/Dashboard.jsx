@@ -70,56 +70,73 @@ function Dashboard() {
             apiService.getMessages(),
           ]);
 
-        const today = moment.tz("Europe/Belgrade").startOf("day");
-        const tomorrow = moment(today).add(1, "day");
-        const weekStart = moment(today).startOf("week");
-        const weekEnd = moment(today).endOf("week");
+        // Get current date/time in Belgrade timezone (date only, no time)
+        const now = moment.tz("Europe/Belgrade");
+        const today = now.clone().startOf("day");
+        const tomorrow = today.clone().add(1, "day");
+        const weekStart = today.clone().startOf("week");
+        const weekEnd = today.clone().endOf("week");
 
         // Stats
         const confirmedBookings = bookingsData.filter(
           (b) => b.status === "CONFIRMED"
         );
 
-        const todayCheckIns = confirmedBookings.filter((b) =>
-          moment.tz(b.startDate, "Europe/Belgrade").isSame(today, "day")
-        );
-        const todayCheckOuts = confirmedBookings.filter((b) =>
-          moment.tz(b.endDate, "Europe/Belgrade").isSame(today, "day")
-        );
+        // Check-ins and check-outs for today (compare dates only, not times)
+        const todayCheckIns = confirmedBookings.filter((b) => {
+          const bookingStart = moment.tz(b.startDate, "Europe/Belgrade");
+          return (
+            bookingStart.format("YYYY-MM-DD") === today.format("YYYY-MM-DD")
+          );
+        });
+        const todayCheckOuts = confirmedBookings.filter((b) => {
+          const bookingEnd = moment.tz(b.endDate, "Europe/Belgrade");
+          return bookingEnd.format("YYYY-MM-DD") === today.format("YYYY-MM-DD");
+        });
 
-        // Guests currently in hotel
+        // Guests currently in hotel (including check-ins today and check-outs tomorrow or later)
         const inHotel = guestsData.filter((g) => {
           const booking = g.booking || g.Booking;
           if (!booking) return false;
-          const start = moment.tz(booking.startDate, "Europe/Belgrade");
-          const end = moment.tz(booking.endDate, "Europe/Belgrade");
+          const start = moment
+            .tz(booking.startDate, "Europe/Belgrade")
+            .startOf("day");
+          const end = moment
+            .tz(booking.endDate, "Europe/Belgrade")
+            .startOf("day");
+          // Active if: start date <= today AND end date >= today
           const isActive =
-            start.isSameOrBefore(today) && end.isSameOrAfter(today);
+            start.isSameOrBefore(today, "day") &&
+            end.isSameOrAfter(today, "day");
           return g.status === "CONFIRMED" && isActive;
         }).length;
 
-        // Occupied and available rooms
+        // Occupied and available rooms (compare dates only)
         const occupiedRooms = roomsData.filter((room) =>
           room.bookings.some((b) => {
-            const start = moment.tz(b.startDate, "Europe/Belgrade");
-            const end = moment.tz(b.endDate, "Europe/Belgrade");
+            if (b.status !== "CONFIRMED") return false;
+            const start = moment
+              .tz(b.startDate, "Europe/Belgrade")
+              .startOf("day");
+            const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
+            // Room is occupied if: start date <= today AND end date > today (check-out is exclusive)
             return (
-              b.status === "CONFIRMED" &&
-              start.isSameOrBefore(today) &&
-              end.isSameOrAfter(today)
+              start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
             );
           })
         ).length;
 
         const availableRooms = roomsData.length - occupiedRooms;
 
-        // Tomorrow occupancy
+        // Tomorrow occupancy (bookings that will be active tomorrow)
         const tomorrowOccupancy = confirmedBookings.filter((b) => {
-          const start = moment.tz(b.startDate, "Europe/Belgrade");
-          const end = moment.tz(b.endDate, "Europe/Belgrade");
+          const start = moment
+            .tz(b.startDate, "Europe/Belgrade")
+            .startOf("day");
+          const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
           return (
             start.isSameOrBefore(tomorrow, "day") &&
-            end.isSameOrAfter(tomorrow, "day")
+            end.isAfter(tomorrow, "day")
           );
         }).length;
 
@@ -242,16 +259,26 @@ function Dashboard() {
         });
 
         const isActiveBooking = (booking) => {
-          const start = moment.tz(booking.startDate, "Europe/Belgrade");
-          const end = moment.tz(booking.endDate, "Europe/Belgrade");
+          const start = moment
+            .tz(booking.startDate, "Europe/Belgrade")
+            .startOf("day");
+          const end = moment
+            .tz(booking.endDate, "Europe/Belgrade")
+            .startOf("day");
           if (roomPeriod === "today")
-            return start.isSameOrBefore(today) && end.isSameOrAfter(today);
+            return (
+              start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
+            );
           if (roomPeriod === "tomorrow")
             return (
-              start.isSameOrBefore(tomorrow) && end.isSameOrAfter(tomorrow)
+              start.isSameOrBefore(tomorrow, "day") &&
+              end.isAfter(tomorrow, "day")
             );
           if (roomPeriod === "week")
-            return start.isBefore(weekEnd) && end.isAfter(weekStart);
+            return (
+              start.isSameOrBefore(weekEnd, "day") &&
+              end.isAfter(weekStart, "day")
+            );
           return false;
         };
 
@@ -274,11 +301,16 @@ function Dashboard() {
         // Pie chart
         const activeBookings = bookingsData.filter((b) => {
           if (b.status !== "CONFIRMED" || !b.room?.type) return false;
-          const start = moment.tz(b.startDate, "Europe/Belgrade");
-          const end = moment.tz(b.endDate, "Europe/Belgrade");
-          return chartMode === "active"
-            ? start.isSameOrBefore(today) && end.isSameOrAfter(today)
-            : true;
+          if (chartMode === "active") {
+            const start = moment
+              .tz(b.startDate, "Europe/Belgrade")
+              .startOf("day");
+            const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
+            return (
+              start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
+            );
+          }
+          return true;
         });
 
         const chartCounts = {};
@@ -341,82 +373,127 @@ function Dashboard() {
 
   const colorArray = Object.values(COLORS);
 
+  // Get today's date in Belgrade timezone for display
+  const todayForDisplay = moment.tz("Europe/Belgrade");
   const todayCheckIns = bookings.filter(
     (b) =>
       b.status === "CONFIRMED" &&
-      moment.tz(b.startDate, "Europe/Belgrade").isSame(moment(), "day")
+      moment.tz(b.startDate, "Europe/Belgrade").format("YYYY-MM-DD") ===
+        todayForDisplay.format("YYYY-MM-DD")
   );
   const todayCheckOuts = bookings.filter(
     (b) =>
       b.status === "CONFIRMED" &&
-      moment.tz(b.endDate, "Europe/Belgrade").isSame(moment(), "day")
+      moment.tz(b.endDate, "Europe/Belgrade").format("YYYY-MM-DD") ===
+        todayForDisplay.format("YYYY-MM-DD")
   );
 
   return (
     <motion.div
-      className="p-8 bg-gray-50 min-h-screen"
+      className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
     >
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 className="text-xl sm:text-2xl font-semibold">
           {user ? `Welcome back, ${user.username}` : "Dashboard"}
         </h1>
 
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition-all duration-300"
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition-all duration-300 text-sm sm:text-base w-full sm:w-auto justify-center"
         >
           <Home size={18} />
           Back to Homepage
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-10">
-        <h2 className="text-xl font-semibold mb-4">Today’s Activity</h2>
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6 sm:mb-10">
+        <h2 className="text-lg sm:text-xl font-semibold mb-4">
+          Today's Activity
+        </h2>
         <div className="space-y-4">
           {todayCheckIns.length === 0 && todayCheckOuts.length === 0 ? (
             <p className="text-gray-500">No activity today.</p>
           ) : (
             <>
-              {todayCheckIns.map((b) => (
-                <motion.div
-                  key={`in-${b.id}`}
-                  whileHover={{ scale: 1.02 }}
-                  className="flex items-center justify-between border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded"
-                >
-                  <span className="text-sm text-green-700 font-medium">
-                    ✅ Check-in: Room {b.room?.roomNumber || "N/A"} —{" "}
-                    {b.customerFirstName} {b.customerLastName}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {moment.tz(b.startDate, "Europe/Belgrade").format("HH:mm")}
-                  </span>
-                </motion.div>
-              ))}
-              {todayCheckOuts.map((b) => (
-                <motion.div
-                  key={`out-${b.id}`}
-                  whileHover={{ scale: 1.02 }}
-                  className="flex items-center justify-between border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded"
-                >
-                  <span className="text-sm text-red-700 font-medium">
-                    🚪 Check-out: Room {b.room?.roomNumber || "N/A"} —{" "}
-                    {b.customerFirstName} {b.customerLastName}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {moment.tz(b.endDate, "Europe/Belgrade").format("HH:mm")}
-                  </span>
-                </motion.div>
-              ))}
+              {todayCheckIns.map((b) => {
+                // Parse the date correctly - if it's an ISO string, parse as UTC then convert to Belgrade
+                let displayTime = moment.tz("Europe/Belgrade");
+
+                if (b.createdAt) {
+                  // Try parsing as ISO string first (UTC), then convert to Belgrade
+                  const parsed = moment.utc(b.createdAt);
+                  if (parsed.isValid()) {
+                    displayTime = parsed.tz("Europe/Belgrade");
+                  } else {
+                    // Fallback: try parsing directly with timezone
+                    const direct = moment.tz(b.createdAt, "Europe/Belgrade");
+                    if (direct.isValid()) {
+                      displayTime = direct;
+                    }
+                  }
+                }
+
+                return (
+                  <motion.div
+                    key={`in-${b.id}`}
+                    whileHover={{ scale: 1.02 }}
+                    className="flex items-center justify-between border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded"
+                  >
+                    <span className="text-sm text-green-700 font-medium">
+                      ✅ Check-in: Room {b.room?.roomNumber || "N/A"} —{" "}
+                      {b.customerFirstName} {b.customerLastName}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {displayTime.format("h:mm A")}
+                    </span>
+                  </motion.div>
+                );
+              })}
+              {todayCheckOuts.map((b) => {
+                // Parse the date correctly - if it's an ISO string, parse as UTC then convert to Belgrade
+                let displayTime = moment.tz("Europe/Belgrade");
+
+                const dateToUse = b.updatedAt || b.createdAt;
+                if (dateToUse) {
+                  // Try parsing as ISO string first (UTC), then convert to Belgrade
+                  const parsed = moment.utc(dateToUse);
+                  if (parsed.isValid()) {
+                    displayTime = parsed.tz("Europe/Belgrade");
+                  } else {
+                    // Fallback: try parsing directly with timezone
+                    const direct = moment.tz(dateToUse, "Europe/Belgrade");
+                    if (direct.isValid()) {
+                      displayTime = direct;
+                    }
+                  }
+                }
+
+                return (
+                  <motion.div
+                    key={`out-${b.id}`}
+                    whileHover={{ scale: 1.02 }}
+                    className="flex items-center justify-between border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded"
+                  >
+                    <span className="text-sm text-red-700 font-medium">
+                      🚪 Check-out: Room {b.room?.roomNumber || "N/A"} —{" "}
+                      {b.customerFirstName} {b.customerLastName}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {displayTime.format("h:mm A")}
+                    </span>
+                  </motion.div>
+                );
+              })}
             </>
           )}
         </div>
       </div>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7 }}
@@ -436,9 +513,9 @@ function Dashboard() {
         ))}
       </motion.div>
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <h2 className="text-xl font-semibold">Room Types</h2>
-        <div className="flex gap-3">
+        <div className="flex gap-2 flex-wrap">
           {["today", "tomorrow", "week"].map((period) => {
             const isActive = roomPeriod === period;
             return (
@@ -459,7 +536,7 @@ function Dashboard() {
       </div>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
@@ -518,13 +595,13 @@ function Dashboard() {
         )}
       </motion.div>
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <h2 className="text-xl font-semibold">Occupancy Statistics</h2>
         {availableYears.length > 0 && (
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="border px-2 py-1 rounded-md text-sm"
+            className="border px-2 py-1 rounded-md text-sm w-full sm:w-auto"
           >
             {availableYears.map((y) => (
               <option key={y} value={y}>
@@ -535,7 +612,7 @@ function Dashboard() {
         )}
       </div>
 
-      <div className="bg-white shadow rounded-xl p-4 h-64 mb-10">
+      <div className="bg-white shadow rounded-xl p-4 h-64 mb-6 sm:mb-10 overflow-x-auto">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={occupancyData}>
             <XAxis dataKey="month" />
@@ -559,10 +636,10 @@ function Dashboard() {
         </ResponsiveContainer>
       </div>
 
-      <div className="flex justify-between items-center mb-4 mt-12">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 mt-12">
         <h2 className="text-xl font-semibold">Revenue Overview</h2>
         <select
-          className="border px-3 py-1.5 rounded-md text-sm text-gray-700"
+          className="border px-3 py-1.5 rounded-md text-sm text-gray-700 w-full sm:w-auto"
           value={selectedYear}
           onChange={(e) => setSelectedYear(parseInt(e.target.value))}
         >
@@ -574,7 +651,7 @@ function Dashboard() {
         </select>
       </div>
 
-      <div className="bg-white shadow rounded-xl p-4 h-72 mb-10">
+      <div className="bg-white shadow rounded-xl p-4 h-72 mb-6 sm:mb-10 overflow-x-auto">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={revenueData}
@@ -613,11 +690,11 @@ function Dashboard() {
         </ResponsiveContainer>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <h2 className="text-xl font-semibold">Bookings by Room Type</h2>
         <button
           onClick={() => setChartMode(chartMode === "all" ? "active" : "all")}
-          className={`px-3 py-1.5 rounded font-medium transition-all duration-300 ${
+          className={`px-3 py-1.5 rounded font-medium transition-all duration-300 text-sm w-full sm:w-auto ${
             chartMode === "all"
               ? "bg-blue-600 text-white hover:bg-blue-700"
               : "bg-green-600 text-white hover:bg-green-700"
@@ -628,12 +705,12 @@ function Dashboard() {
       </div>
 
       <motion.div
-        className="bg-white shadow rounded-xl p-4 h-[420px] mb-10 flex justify-center items-center"
+        className="bg-white shadow rounded-xl p-4 h-[300px] sm:h-[420px] mb-6 sm:mb-10 flex justify-center items-center overflow-x-auto"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <ResponsiveContainer width="65%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={300}>
           <PieChart
             margin={{
               top: 20,
@@ -682,8 +759,8 @@ function Dashboard() {
         </ResponsiveContainer>
       </motion.div>
 
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
           Recent Guest Messages
           {messages.some((m) => !m.read) && (
             <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
@@ -694,14 +771,16 @@ function Dashboard() {
       </div>
 
       <div className="bg-white shadow rounded-xl p-4 overflow-x-auto">
-        <table className="w-full text-sm text-left table-fixed">
+        <table className="w-full text-sm text-left min-w-[600px]">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-3 w-[15%]">Name</th>
-              <th className="p-3 w-[20%]">Email</th>
-              <th className="p-3 w-[40%]">Message</th>
-              <th className="p-3 w-[15%] text-nowrap text-center">Date</th>
-              <th className="p-3 w-[10%] text-center">Actions</th>
+              <th className="p-3 min-w-[120px]">Name</th>
+              <th className="p-3 min-w-[180px]">Email</th>
+              <th className="p-3 min-w-[200px]">Message</th>
+              <th className="p-3 min-w-[100px] text-nowrap text-center">
+                Date
+              </th>
+              <th className="p-3 min-w-[150px] text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -724,50 +803,52 @@ function Dashboard() {
                   <td className="p-3 text-gray-500 whitespace-nowrap text-center align-top">
                     {moment(msg.createdAt).format("YYYY-MM-DD")}
                   </td>
-                  <td className="p-3 flex gap-2 justify-center align-top">
-                    <button
-                      onClick={async () => {
-                        try {
-                          await apiService.updateMessageStatus(msg.id, {
-                            read: !msg.read,
-                          });
-                          setMessages((prev) =>
-                            prev.map((m) =>
-                              m.id === msg.id ? { ...m, read: !msg.read } : m
-                            )
-                          );
-                        } catch (err) {
-                          console.error("Failed to update message:", err);
-                        }
-                      }}
-                      className={`px-2 py-1 rounded text-xs ${
-                        msg.read
-                          ? "bg-blue-200 text-blue-700 hover:bg-blue-300"
-                          : "bg-green-200 text-green-700 hover:bg-green-300"
-                      }`}
-                    >
-                      {msg.read ? "Mark Unread" : "Mark Read"}
-                    </button>
-
-                    <button
-                      onClick={async () => {
-                        if (
-                          window.confirm("Delete this message permanently?")
-                        ) {
+                  <td className="p-3">
+                    <div className="flex gap-2 justify-center align-top flex-wrap">
+                      <button
+                        onClick={async () => {
                           try {
-                            await apiService.deleteMessage(msg.id);
+                            await apiService.updateMessageStatus(msg.id, {
+                              read: !msg.read,
+                            });
                             setMessages((prev) =>
-                              prev.filter((m) => m.id !== msg.id)
+                              prev.map((m) =>
+                                m.id === msg.id ? { ...m, read: !msg.read } : m
+                              )
                             );
                           } catch (err) {
-                            console.error("Failed to delete message:", err);
+                            console.error("Failed to update message:", err);
                           }
-                        }
-                      }}
-                      className="px-2 py-1 rounded text-xs bg-red-200 text-red-700 hover:bg-red-300"
-                    >
-                      Delete
-                    </button>
+                        }}
+                        className={`px-2 py-1 rounded text-xs ${
+                          msg.read
+                            ? "bg-blue-200 text-blue-700 hover:bg-blue-300"
+                            : "bg-green-200 text-green-700 hover:bg-green-300"
+                        }`}
+                      >
+                        {msg.read ? "Mark Unread" : "Mark Read"}
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          if (
+                            window.confirm("Delete this message permanently?")
+                          ) {
+                            try {
+                              await apiService.deleteMessage(msg.id);
+                              setMessages((prev) =>
+                                prev.filter((m) => m.id !== msg.id)
+                              );
+                            } catch (err) {
+                              console.error("Failed to delete message:", err);
+                            }
+                          }
+                        }}
+                        className="px-2 py-1 rounded text-xs bg-red-200 text-red-700 hover:bg-red-300"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </motion.tr>
               ))

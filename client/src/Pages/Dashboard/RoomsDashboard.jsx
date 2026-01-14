@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import moment from "moment";
+import moment from "moment-timezone";
 import apiService from "../../services/api";
 import { useUser } from "../../UserContext";
 import { Edit3, Trash2, Plus } from "lucide-react";
-
 import photo1 from "../../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
 import photo3 from "../../Images/room3.jpg";
 import photo6 from "../../Images/natalia-gusakova-EYoK3eVKIiQ-unsplash.jpg";
+
+moment.tz.setDefault("Europe/Belgrade");
 
 const fallbackByType = {
   SINGLE: photo1,
@@ -55,7 +56,7 @@ function RoomsDashboard() {
         ]);
         setAllRooms(roomsData);
 
-        const today = moment().startOf("day");
+        const today = moment.tz("Europe/Belgrade").startOf("day");
         const grouped = {};
 
         roomsData.forEach((room) => {
@@ -75,16 +76,17 @@ function RoomsDashboard() {
           grouped[room.type].total++;
         });
 
+        // Count occupied rooms: booking starts on or before today AND ends after today
+        // (check-out is exclusive - room is available on check-out day after checkout)
         bookingsData.forEach((b) => {
           const type = b.room?.type;
-          const start = moment(b.startDate);
-          const end = moment(b.endDate);
-          if (
-            grouped[type] &&
-            b.status === "CONFIRMED" &&
-            start.isSameOrBefore(today) &&
-            end.isSameOrAfter(today)
-          ) {
+          if (!grouped[type] || b.status !== "CONFIRMED") return;
+          
+          const start = moment.tz(b.startDate, "Europe/Belgrade").startOf("day");
+          const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
+          
+          // Room is occupied if: start <= today AND end > today
+          if (start.isSameOrBefore(today, "day") && end.isAfter(today, "day")) {
             grouped[type].occupied++;
           }
         });

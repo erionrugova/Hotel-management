@@ -146,13 +146,31 @@ router.post("/", authenticateToken, async (req, res) => {
       orderBy: { roomNumber: "asc" },
     });
 
+    // Normalize dates to start of day for accurate comparison
+    const normalizeDate = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    
+    const normalizedStart = normalizeDate(start);
+    const normalizedEnd = normalizeDate(end);
+
     // find first available room
     let availableRoom = null;
     for (const room of allRoomsOfType) {
       const isOccupied = room.bookings.some((b) => {
-        const bStart = new Date(b.startDate);
-        const bEnd = new Date(b.endDate);
-        return !(bEnd < start || bStart > end);
+        const bStart = normalizeDate(b.startDate);
+        const bEnd = normalizeDate(b.endDate);
+        // Check for overlap: bookings overlap if dates conflict
+        // A room is occupied if:
+        // - Existing booking ends AFTER new booking starts (bEnd > normalizedStart)
+        // AND
+        // - Existing booking starts BEFORE new booking ends (bStart < normalizedEnd)
+        // This allows same-day transitions: check-out on day X, check-in on day X is allowed
+        // Example: Existing Jan 1-5, New Jan 5-10: bEnd(Jan5) > normalizedStart(Jan5) = false, so no overlap ✓
+        // Example: Existing Jan 1-5, New Jan 4-10: bEnd(Jan5) > normalizedStart(Jan4) = true AND bStart(Jan1) < normalizedEnd(Jan10) = true, so overlap ✗
+        return bEnd > normalizedStart && bStart < normalizedEnd;
       });
       if (!isOccupied) {
         availableRoom = room;
@@ -204,6 +222,7 @@ router.post("/", authenticateToken, async (req, res) => {
     const finalPrice = pricePerNight * nights;
 
     // create booking with first available room
+    // Bookings are automatically CONFIRMED to immediately reflect in availability
     const newBooking = await prisma.booking.create({
       data: {
         roomId: availableRoom.id,
@@ -218,7 +237,7 @@ router.post("/", authenticateToken, async (req, res) => {
         baseRate: availableRoom.price,
         finalPrice,
         dealId: dealId ? parseInt(dealId, 10) : null,
-        status: "PENDING",
+        status: "CONFIRMED", // Auto-confirm bookings so they immediately affect availability
       },
       include: { room: true, deal: true },
     });
@@ -230,7 +249,7 @@ router.post("/", authenticateToken, async (req, res) => {
         email: customerEmail,
         bookingId: newBooking.id,
         roomId: availableRoom.id,
-        status: "PENDING",
+        status: "CONFIRMED", // Auto-confirm guest status to match booking
         paymentStatus: "PENDING",
         finalPrice,
         dealId: dealId ? parseInt(dealId, 10) : null,
@@ -264,31 +283,97 @@ router.patch(
         customerEmail,
         paymentType,
         status,
+        dealId,
       } = req.body;
 
       const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
+        include: { room: true },
       });
       if (!booking) return res.status(404).json({ error: "Booking not found" });
 
       const newRoomId = roomId ? parseInt(roomId, 10) : booking.roomId;
       const newStart = startDate ? new Date(startDate) : booking.startDate;
       const newEnd = endDate ? new Date(endDate) : booking.endDate;
+      
+      // Get the room for price calculation (use new room if changed, otherwise existing)
+      const roomForPrice = newRoomId !== booking.roomId
+        ? await prisma.room.findUnique({ where: { id: newRoomId } })
+        : booking.room;
+      
+      if (!roomForPrice) {
+        return res.status(404).json({ error: "Room not found" });
+      }
 
-      // overlap check
-      const overlap = await prisma.booking.findFirst({
+      // Normalize dates to start of day for accurate comparison
+      const normalizeDate = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+      
+      const normalizedNewStart = normalizeDate(newStart);
+      const normalizedNewEnd = normalizeDate(newEnd);
+
+      // overlap check - find bookings that overlap with the new dates
+      const overlappingBookings = await prisma.booking.findMany({
         where: {
           roomId: newRoomId,
           id: { not: bookingId },
           status: { in: ["PENDING", "CONFIRMED"] },
-          NOT: [{ endDate: { lt: newStart } }, { startDate: { gt: newEnd } }],
         },
+      });
+
+      // Check for actual date overlap
+      // Same logic as create: allow same-day transitions (check-out on day X, check-in on day X)
+      const overlap = overlappingBookings.some((b) => {
+        const bStart = normalizeDate(b.startDate);
+        const bEnd = normalizeDate(b.endDate);
+        // Overlap exists if: bEnd > normalizedNewStart AND bStart < normalizedNewEnd
+        return bEnd > normalizedNewStart && bStart < normalizedNewEnd;
       });
 
       if (overlap)
         return res
           .status(400)
           .json({ error: "Room is already booked on these dates" });
+
+      // Recalculate price if dates, room, or deal changed
+      const datesChanged = newStart.getTime() !== booking.startDate.getTime() || 
+                          newEnd.getTime() !== booking.endDate.getTime();
+      const roomChanged = newRoomId !== booking.roomId;
+      const dealChanged = dealId !== undefined && 
+                         (dealId ? parseInt(dealId, 10) : null) !== booking.dealId;
+      
+      let finalPrice = booking.finalPrice;
+      let newDealId = booking.dealId;
+      
+      if (datesChanged || roomChanged || dealChanged) {
+        // Calculate nights
+        const nights = Math.ceil((newEnd - newStart) / (1000 * 60 * 60 * 24));
+        let pricePerNight = parseFloat(roomForPrice.price);
+        
+        // Apply deal if provided
+        newDealId = dealId !== undefined 
+          ? (dealId ? parseInt(dealId, 10) : null)
+          : booking.dealId;
+          
+        if (newDealId) {
+          const appliedDeal = await prisma.deal.findUnique({
+            where: { id: newDealId },
+          });
+          if (
+            appliedDeal &&
+            appliedDeal.status === "ONGOING" &&
+            (appliedDeal.roomType === "ALL" ||
+              appliedDeal.roomType === roomForPrice.type)
+          ) {
+            pricePerNight -= (pricePerNight * appliedDeal.discount) / 100;
+          }
+        }
+        
+        finalPrice = pricePerNight * nights;
+      }
 
       const updated = await prisma.booking.update({
         where: { id: bookingId },
@@ -301,9 +386,27 @@ router.patch(
           customerEmail: customerEmail ?? booking.customerEmail,
           paymentType: paymentType ?? booking.paymentType,
           status: status ?? booking.status,
+          dealId: newDealId,
+          finalPrice: finalPrice,
         },
-        include: { room: true },
+        include: { room: true, deal: true },
       });
+
+      // Update associated guest record if it exists
+      const guest = await prisma.guest.findUnique({
+        where: { bookingId: bookingId },
+      });
+      
+      if (guest) {
+        await prisma.guest.update({
+          where: { id: guest.id },
+          data: {
+            dealId: newDealId,
+            finalPrice: finalPrice,
+            roomId: newRoomId,
+          },
+        });
+      }
 
       res.json(localizeBookingDates([updated])[0]);
     } catch (err) {
