@@ -7,6 +7,24 @@ const router = express.Router();
 router.use(authenticateToken);
 moment.tz.setDefault("Europe/Belgrade");
 
+/**
+ * @swagger
+ * /guests:
+ *   get:
+ *     summary: Get all guests
+ *     tags: [Guests]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of guests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Guest'
+ */
 // get all guests
 router.get("/", async (req, res) => {
   try {

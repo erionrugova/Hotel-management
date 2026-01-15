@@ -23,6 +23,8 @@ import contactRoutes from "./routes/contactRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger.js";
 
 dotenv.config();
 const app = express();
@@ -107,6 +109,23 @@ app.get("/api/health", (req, res) =>
   })
 );
 
+// Swagger API Documentation
+try {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "Hotel Management API Documentation",
+  }));
+  console.log("✅ Swagger UI configured successfully");
+} catch (error) {
+  console.error("❌ Swagger configuration error:", error);
+  app.use("/api-docs", (req, res) => {
+    res.status(500).json({
+      error: "Swagger documentation unavailable",
+      message: error.message,
+    });
+  });
+}
+
 // daily token cleanup
 cron.schedule("0 2 * * *", async () => {
   console.log("Running daily refresh token cleanup...");
@@ -138,6 +157,7 @@ process.on("SIGTERM", async () => {
 app.listen(PORT, () => {
   console.log(`Server running securely on port ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
+  console.log(`API Docs: http://localhost:${PORT}/api-docs`);
   console.log(`Uploads served from: http://localhost:${PORT}/uploads`);
   console.log(" Daily cleanup job scheduled for 2:00 AM");
 });

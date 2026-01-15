@@ -24,6 +24,29 @@ function localizeBookingDates(bookings) {
   }));
 }
 
+/**
+ * @swagger
+ * /bookings/{id}:
+ *   get:
+ *     summary: Get booking by ID
+ *     tags: [Bookings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       404:
+ *         description: Booking not found
+ */
 router.get("/:id", async (req, res) => {
   try {
     const bookingId = parseInt(req.params.id);

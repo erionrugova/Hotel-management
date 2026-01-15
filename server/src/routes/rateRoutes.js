@@ -21,6 +21,24 @@ async function computeAvailability(rate) {
   return Math.max(totalRooms - activeBookings, 0);
 }
 
+/**
+ * @swagger
+ * /rates:
+ *   get:
+ *     summary: Get all rates
+ *     tags: [Rates]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of rates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Rate'
+ */
 // get all rates
 router.get("/", async (req, res) => {
   try {
@@ -40,6 +58,31 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("Error fetching rates:", error);
     res.status(500).json({ error: "Failed to fetch rates" });
+  }
+});
+
+// get single rate by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const rateId = parseInt(req.params.id, 10);
+    if (isNaN(rateId)) {
+      return res.status(400).json({ error: "Invalid rate ID" });
+    }
+
+    const rate = await prisma.rate.findUnique({
+      where: { id: rateId },
+      include: { room: true, deal: true },
+    });
+
+    if (!rate) {
+      return res.status(404).json({ error: "Rate not found" });
+    }
+
+    const availableRooms = await computeAvailability(rate);
+    res.json({ ...rate, availableRooms });
+  } catch (error) {
+    console.error("Error fetching rate:", error);
+    res.status(500).json({ error: "Failed to fetch rate" });
   }
 });
 

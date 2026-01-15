@@ -7,10 +7,13 @@ import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 
 const router = express.Router();
-const client = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
-);
+// Initialize Google OAuth client only if credentials are provided
+const client = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+  ? new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    )
+  : null;
 
 // helper: log session
 async function logSession(userId, action, req) {
@@ -57,6 +60,53 @@ async function createRefreshToken(userId, res) {
   return token;
 }
 
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 example: john_doe
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: password123
+ *               role:
+ *                 type: string
+ *                 enum: [USER, MANAGER, ADMIN]
+ *                 default: USER
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // register
 router.post(
   "/register",
@@ -101,6 +151,55 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login user and get access token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: john_doe
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         headers:
+ *           Set-Cookie:
+ *             description: Refresh token stored in HTTP-only cookie
+ *             schema:
+ *               type: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 accessToken:
+ *                   type: string
+ *                   description: JWT access token
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // login
 router.post(
   "/login",
@@ -144,6 +243,30 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh access token using refresh token cookie
+ *     tags: [Authentication]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Access token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken:
+ *                   type: string
+ *                   description: New JWT access token
+ *       401:
+ *         description: No refresh token provided
+ *       403:
+ *         description: Invalid or expired refresh token
+ */
 // refresh access token
 router.post("/refresh", async (req, res) => {
   try {
@@ -191,6 +314,25 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user and revoke refresh token
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
 // logout
 router.post("/logout", async (req, res) => {
   try {
@@ -223,6 +365,13 @@ router.post("/logout", async (req, res) => {
 // google login (one tap)
 router.post("/google", async (req, res) => {
   try {
+    if (!client || !process.env.GOOGLE_CLIENT_ID) {
+      return res.status(503).json({ 
+        error: "Google OAuth not configured",
+        message: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required"
+      });
+    }
+
     const { credential } = req.body;
     if (!credential)
       return res.status(400).json({ error: "Google credential missing" });
@@ -264,6 +413,13 @@ router.post("/google", async (req, res) => {
 });
 
 router.get("/google", (req, res) => {
+  if (!client || !process.env.GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ 
+      error: "Google OAuth not configured",
+      message: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required"
+    });
+  }
+
   const redirectUrl = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -275,6 +431,10 @@ router.get("/google", (req, res) => {
 
 router.get("/google/callback", async (req, res) => {
   try {
+    if (!client || !process.env.GOOGLE_CLIENT_ID) {
+      return res.redirect("http://localhost:3001/login?error=google_oauth_not_configured");
+    }
+
     const { code } = req.query;
 
     // exchange google code for tokens

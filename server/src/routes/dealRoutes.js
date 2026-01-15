@@ -7,6 +7,22 @@ const router = express.Router();
 const VALID_STATUSES = ["ONGOING", "INACTIVE", "FULL"];
 const VALID_ROOM_TYPES = ["SINGLE", "DOUBLE", "SUITE", "DELUXE", "ALL"];
 
+/**
+ * @swagger
+ * /deals:
+ *   get:
+ *     summary: Get all deals
+ *     tags: [Deals]
+ *     responses:
+ *       200:
+ *         description: List of deals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Deal'
+ */
 // get all deals
 router.get("/", async (req, res) => {
   try {

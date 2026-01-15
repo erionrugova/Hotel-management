@@ -46,6 +46,46 @@ const PREFIX_MAP = {
   SUITE: 400,
 };
 
+/**
+ * @swagger
+ * /rooms:
+ *   get:
+ *     summary: Get all rooms with optional filters
+ *     tags: [Rooms]
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [SINGLE, DOUBLE, DELUXE, SUITE]
+ *         description: Filter by room type
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter available rooms by start date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter available rooms by end date
+ *       - in: query
+ *         name: guests
+ *         schema:
+ *           type: integer
+ *         description: Filter by minimum capacity
+ *     responses:
+ *       200:
+ *         description: List of rooms
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Room'
+ */
 // get all rooms
 router.get("/", async (req, res) => {
   try {
@@ -96,6 +136,29 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /rooms/{id}:
+ *   get:
+ *     summary: Get room by ID
+ *     tags: [Rooms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Room ID
+ *     responses:
+ *       200:
+ *         description: Room details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Room'
+ *       404:
+ *         description: Room not found
+ */
 // get single room
 router.get("/:id", async (req, res) => {
   try {

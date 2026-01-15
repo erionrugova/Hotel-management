@@ -7,6 +7,28 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Get all users (Admin/Manager only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ */
 // get all users (Admin/Manager only)
 router.get("/", authorize("ADMIN", "MANAGER"), async (req, res) => {
   try {
