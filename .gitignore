@@ -40,6 +40,7 @@ client/build/
 server/node_modules/
 server/dist/
 server/.env
+client/.env
 .env
 *.env
 

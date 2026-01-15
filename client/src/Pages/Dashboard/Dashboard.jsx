@@ -70,7 +70,6 @@ function Dashboard() {
             apiService.getMessages(),
           ]);
 
-        // Get current date/time in Belgrade timezone (date only, no time)
         const now = moment.tz("Europe/Belgrade");
         const today = now.clone().startOf("day");
         const tomorrow = today.clone().add(1, "day");

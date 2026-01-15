@@ -1,0 +1,35 @@
+# Production docker-compose - uses existing MySQL container
+# MySQL container (hotel-mysql) should be started separately: docker start hotel-mysql
+
+services:
+  # Backend API Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hotel-server
+    restart: unless-stopped
+    environment:
+      # Connect to existing MySQL container by IP (on bridge network)
+      # Make sure hotel-mysql is running: docker start hotel-mysql
+      # MySQL IP: 172.17.0.3 (get with: docker inspect hotel-mysql --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+      DATABASE_URL: mysql://hotel_user:hotel_password@172.17.0.3:3306/hotel_management
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      NODE_ENV: production
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}
+    ports:
+      - "3000:3000"
+    network_mode: bridge
+    volumes:
+      - ./server/uploads:/app/uploads
+    command: >
+      sh -c "
+        echo 'Connecting to existing MySQL database (hotel-mysql) at 172.17.0.3:3306...' &&
+        sleep 3 &&
+        npx prisma generate &&
+        node src/server.js
+      "

@@ -1,0 +1,62 @@
+# Development docker-compose - includes MySQL and Server with hot reload
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: hotel-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: hotel_management
+      MYSQL_USER: hotel_user
+      MYSQL_PASSWORD: hotel_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+    networks:
+      - hotel-network-dev
+
+  # Backend API Server (Development with hot reload)
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hotel-server-dev
+    restart: unless-stopped
+    environment:
+      # Connect to MySQL container using service name
+      DATABASE_URL: mysql://hotel_user:hotel_password@mysql:3306/hotel_management
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      NODE_ENV: development
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3002/api/auth/google/callback}
+    ports:
+      - "3002:3000" # Docker server on 3002, npm dev on 3000, frontend on 3001
+    networks:
+      - hotel-network-dev
+    depends_on:
+      - mysql
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - ./server/uploads:/app/uploads
+    command: >
+      sh -c "
+        echo 'Waiting for MySQL to be ready...' &&
+        sleep 5 &&
+        npx prisma generate &&
+        npx prisma db push --accept-data-loss || true &&
+        npm run dev
+      "
+
+volumes:
+  mysql_data_dev:
+
+networks:
+  hotel-network-dev:
+    driver: bridge

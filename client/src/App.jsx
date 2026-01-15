@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,24 +10,32 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import SessionExpiredModal from "./components/SessionExpiredModal";
 
-import Layout from "./Layout";
-import Homepage from "./Pages/Homepage";
-import About from "./Pages/About";
-import Login from "./Pages/Login";
-import Signup from "./Pages/Signup";
-import ContactUs from "./Pages/ContactUs";
-import Rooms from "./Pages/Rooms";
-import RoomDetails from "./Pages/RoomDetails";
-import LoginSuccess from "./Pages/LoginSuccess";
+// Lazy load components for code splitting
+const Layout = lazy(() => import("./Layout"));
+const Homepage = lazy(() => import("./Pages/Homepage"));
+const About = lazy(() => import("./Pages/About"));
+const Login = lazy(() => import("./Pages/Login"));
+const Signup = lazy(() => import("./Pages/Signup"));
+const ContactUs = lazy(() => import("./Pages/ContactUs"));
+const Rooms = lazy(() => import("./Pages/Rooms"));
+const RoomDetails = lazy(() => import("./Pages/RoomDetails"));
+const LoginSuccess = lazy(() => import("./Pages/LoginSuccess"));
 
-import DashboardLayout from "./Pages/Dashboard/DashboardLayout";
-import Dashboard from "./Pages/Dashboard/Dashboard";
-import FrontDesk from "./Pages/Dashboard/FrontDesk";
-import Guests from "./Pages/Dashboard/Guests";
-import RoomsDashboard from "./Pages/Dashboard/RoomsDashboard";
-import Deals from "./Pages/Dashboard/Deals";
-import Rate from "./Pages/Dashboard/Rate";
-import Refunds from "./Pages/Dashboard/Refunds";
+const DashboardLayout = lazy(() => import("./Pages/Dashboard/DashboardLayout"));
+const Dashboard = lazy(() => import("./Pages/Dashboard/Dashboard"));
+const FrontDesk = lazy(() => import("./Pages/Dashboard/FrontDesk"));
+const Guests = lazy(() => import("./Pages/Dashboard/Guests"));
+const RoomsDashboard = lazy(() => import("./Pages/Dashboard/RoomsDashboard"));
+const Deals = lazy(() => import("./Pages/Dashboard/Deals"));
+const Rate = lazy(() => import("./Pages/Dashboard/Rate"));
+const Refunds = lazy(() => import("./Pages/Dashboard/Refunds"));
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B89B5E]"></div>
+  </div>
+);
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useUser();
@@ -53,36 +61,38 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Homepage />} />
-        <Route path="rooms" element={<Rooms />} />
-        <Route path="rooms/:id" element={<RoomDetails />} />
-        <Route path="about" element={<About />} />
-        <Route path="contact" element={<ContactUs />} />
-      </Route>
+    <Suspense fallback={<LoadingSpinner />}>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Homepage />} />
+          <Route path="rooms" element={<Rooms />} />
+          <Route path="rooms/:id" element={<RoomDetails />} />
+          <Route path="about" element={<About />} />
+          <Route path="contact" element={<ContactUs />} />
+        </Route>
 
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/login-success" element={<LoginSuccess />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login-success" element={<LoginSuccess />} />
 
-      <Route
-        path="/dashboard/*"
-        element={
-          <ProtectedRoute requiredRole={["ADMIN", "MANAGER"]}>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="frontdesk" element={<FrontDesk />} />
-        <Route path="guests" element={<Guests />} />
-        <Route path="rooms" element={<RoomsDashboard />} />
-        <Route path="deals" element={<Deals />} />
-        <Route path="rates" element={<Rate />} />
-        <Route path="refunds" element={<Refunds />} />
-      </Route>
-    </Routes>
+        <Route
+          path="/dashboard/*"
+          element={
+            <ProtectedRoute requiredRole={["ADMIN", "MANAGER"]}>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="frontdesk" element={<FrontDesk />} />
+          <Route path="guests" element={<Guests />} />
+          <Route path="rooms" element={<RoomsDashboard />} />
+          <Route path="deals" element={<Deals />} />
+          <Route path="rates" element={<Rate />} />
+          <Route path="refunds" element={<Refunds />} />
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }
 
