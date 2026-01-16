@@ -118,6 +118,73 @@ async function calculateRefund(booking, actualEndDate) {
   };
 }
 
+/**
+ * @swagger
+ * /guests/{id}/status:
+ *   patch:
+ *     summary: Update guest status and payment status (Admin/Manager only)
+ *     tags: [Guests]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Guest ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED]
+ *                 description: Guest status. COMPLETED triggers early check-out refund calculation if applicable.
+ *               paymentStatus:
+ *                 type: string
+ *                 enum: [PENDING, PAID, FAILED]
+ *               earlyCheckoutDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Actual check-out date for early check-out refund calculation
+ *     responses:
+ *       200:
+ *         description: Guest and booking updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 guest:
+ *                   $ref: '#/components/schemas/Guest'
+ *                 booking:
+ *                   $ref: '#/components/schemas/Booking'
+ *                 refund:
+ *                   type: object
+ *                   properties:
+ *                     refundAmount:
+ *                       type: number
+ *                     refundable:
+ *                       type: boolean
+ *                     reason:
+ *                       type: string
+ *                     policy:
+ *                       type: string
+ *                     unusedNights:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *       404:
+ *         description: Guest not found
+ */
 // update guest status
 router.patch("/:id/status", authorize("ADMIN", "MANAGER"), async (req, res) => {
   try {

@@ -8,12 +8,13 @@ import crypto from "crypto";
 
 const router = express.Router();
 // Initialize Google OAuth client only if credentials are provided
-const client = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-  ? new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    )
-  : null;
+const client =
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+      )
+    : null;
 
 // helper: log session
 async function logSession(userId, action, req) {
@@ -175,12 +176,13 @@ router.post(
  *                 example: password123
  *     responses:
  *       200:
- *         description: Login successful
+ *         description: Login successful. Refresh token is stored in HTTP-only cookie (not in response body for security).
  *         headers:
  *           Set-Cookie:
- *             description: Refresh token stored in HTTP-only cookie
+ *             description: Refresh token stored in HTTP-only cookie (refreshToken). Valid for 7 days. Used automatically by /auth/refresh endpoint.
  *             schema:
  *               type: string
+ *               example: refreshToken=abc123...; HttpOnly; Path=/; SameSite=Lax; Expires=...
  *         content:
  *           application/json:
  *             schema:
@@ -188,13 +190,21 @@ router.post(
  *               properties:
  *                 message:
  *                   type: string
+ *                   example: "Login successful"
  *                 accessToken:
  *                   type: string
- *                   description: JWT access token
+ *                   description: JWT access token (store in localStorage/client memory). Expires based on JWT_EXPIRES_IN.
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 user:
  *                   $ref: '#/components/schemas/User'
  *       401:
  *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
  *         content:
  *           application/json:
  *             schema:
@@ -238,7 +248,13 @@ router.post(
       });
     } catch (error) {
       console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
+      console.error("Error stack:", error.stack);
+      // In development, provide more error details
+      const errorMessage =
+        process.env.NODE_ENV === "development"
+          ? `Login failed: ${error.message}`
+          : "Login failed";
+      res.status(500).json({ error: errorMessage });
     }
   }
 );
@@ -362,13 +378,14 @@ router.post("/logout", async (req, res) => {
   }
 });
 
-// google login (one tap)
+// google login (one tap) - Swagger documentation removed
 router.post("/google", async (req, res) => {
   try {
     if (!client || !process.env.GOOGLE_CLIENT_ID) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Google OAuth not configured",
-        message: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required"
+        message:
+          "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required",
       });
     }
 
@@ -412,11 +429,13 @@ router.post("/google", async (req, res) => {
   }
 });
 
+// Google OAuth initiation - Swagger documentation removed
 router.get("/google", (req, res) => {
   if (!client || !process.env.GOOGLE_CLIENT_ID) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Google OAuth not configured",
-      message: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required"
+      message:
+        "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required",
     });
   }
 
@@ -429,10 +448,13 @@ router.get("/google", (req, res) => {
   res.redirect(redirectUrl);
 });
 
+// Google OAuth callback - Swagger documentation removed
 router.get("/google/callback", async (req, res) => {
   try {
     if (!client || !process.env.GOOGLE_CLIENT_ID) {
-      return res.redirect("http://localhost:3001/login?error=google_oauth_not_configured");
+      return res.redirect(
+        "http://localhost:3001/login?error=google_oauth_not_configured"
+      );
     }
 
     const { code } = req.query;

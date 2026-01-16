@@ -61,6 +61,35 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /rates/{id}:
+ *   get:
+ *     summary: Get rate by ID
+ *     tags: [Rates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Rate ID
+ *     responses:
+ *       200:
+ *         description: Rate details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Rate'
+ *       400:
+ *         description: Invalid rate ID
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Rate not found
+ */
 // get single rate by ID
 router.get("/:id", async (req, res) => {
   try {
@@ -86,6 +115,54 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /rates:
+ *   post:
+ *     summary: Create a new rate (Admin/Manager only)
+ *     tags: [Rates]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - roomId
+ *               - rate
+ *               - policy
+ *             properties:
+ *               roomId:
+ *                 type: integer
+ *                 example: 1
+ *               rate:
+ *                 type: number
+ *                 description: Base rate per night
+ *                 example: 100.00
+ *               policy:
+ *                 type: string
+ *                 enum: [STRICT, FLEXIBLE, NON_REFUNDABLE]
+ *                 description: Cancellation/refund policy
+ *               dealId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Optional deal ID to apply discount
+ *     responses:
+ *       201:
+ *         description: Rate created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Rate'
+ *       400:
+ *         description: Validation error or room/deal not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ */
 // create rate
 router.post(
   "/",
@@ -153,6 +230,54 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /rates/{id}:
+ *   put:
+ *     summary: Update rate (Admin/Manager only)
+ *     tags: [Rates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Rate ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               roomId:
+ *                 type: integer
+ *               rate:
+ *                 type: number
+ *               policy:
+ *                 type: string
+ *                 enum: [STRICT, FLEXIBLE, NON_REFUNDABLE]
+ *               dealId:
+ *                 type: integer
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Rate updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Rate'
+ *       400:
+ *         description: Validation error or room/deal not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *       404:
+ *         description: Rate not found
+ */
 // update rate
 router.put(
   "/:id",
@@ -254,6 +379,38 @@ router.put(
   }
 );
 
+/**
+ * @swagger
+ * /rates/{id}:
+ *   delete:
+ *     summary: Delete rate (Admin only)
+ *     tags: [Rates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Rate ID
+ *     responses:
+ *       200:
+ *         description: Rate deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin role required
+ *       404:
+ *         description: Rate not found
+ */
 // delete rate
 router.delete("/:id", authorize("ADMIN"), async (req, res) => {
   try {

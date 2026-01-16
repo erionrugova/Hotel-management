@@ -77,6 +77,28 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /contact:
+ *   get:
+ *     summary: Get all contact messages (Admin/Manager only)
+ *     tags: [Contact]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of contact messages
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Contact'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ */
 // get all messages (Admin/Manager only)
 router.get(
   "/",
@@ -95,6 +117,49 @@ router.get(
   }
 );
 
+/**
+ * @swagger
+ * /contact/{id}/read:
+ *   patch:
+ *     summary: Mark contact message as read/unread (Admin/Manager only)
+ *     tags: [Contact]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Contact message ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - read
+ *             properties:
+ *               read:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Message status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Contact'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *       404:
+ *         description: Message not found
+ */
 // mark as read/unread (Admin/Manager only)
 router.patch(
   "/:id/read",
@@ -127,6 +192,38 @@ router.patch(
   }
 );
 
+/**
+ * @swagger
+ * /contact/{id}:
+ *   delete:
+ *     summary: Delete contact message (Admin/Manager only)
+ *     tags: [Contact]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Contact message ID
+ *     responses:
+ *       200:
+ *         description: Message deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *       404:
+ *         description: Message not found
+ */
 // delete message (Admin/Manager only)
 router.delete(
   "/:id",

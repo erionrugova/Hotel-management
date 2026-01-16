@@ -36,6 +36,29 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /deals/{id}:
+ *   get:
+ *     summary: Get deal by ID
+ *     tags: [Deals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Deal ID
+ *     responses:
+ *       200:
+ *         description: Deal details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Deal'
+ *       404:
+ *         description: Deal not found
+ */
 // get single deal
 router.get("/:id", async (req, res) => {
   try {
@@ -51,6 +74,61 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /deals:
+ *   post:
+ *     summary: Create a new deal (Admin/Manager only)
+ *     tags: [Deals]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - discount
+ *               - roomType
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Summer Special"
+ *               discount:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 description: Discount percentage
+ *                 example: 20
+ *               status:
+ *                 type: string
+ *                 enum: [ONGOING, INACTIVE, FULL]
+ *                 default: ONGOING
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 example: "2024-12-31"
+ *               roomType:
+ *                 type: string
+ *                 enum: [SINGLE, DOUBLE, SUITE, DELUXE, ALL]
+ *                 example: "ALL"
+ *     responses:
+ *       201:
+ *         description: Deal created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Deal'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ */
 // create deal
 router.post(
   "/",
@@ -101,6 +179,60 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /deals/{id}:
+ *   put:
+ *     summary: Update deal (Admin/Manager only)
+ *     tags: [Deals]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Deal ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               discount:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 100
+ *               status:
+ *                 type: string
+ *                 enum: [ONGOING, INACTIVE, FULL]
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *               roomType:
+ *                 type: string
+ *                 enum: [SINGLE, DOUBLE, SUITE, DELUXE, ALL]
+ *     responses:
+ *       200:
+ *         description: Deal updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Deal'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *       404:
+ *         description: Deal not found
+ */
 // update deal
 router.put(
   "/:id",
@@ -161,6 +293,38 @@ router.put(
   }
 );
 
+/**
+ * @swagger
+ * /deals/{id}:
+ *   delete:
+ *     summary: Delete deal (Admin only)
+ *     tags: [Deals]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Deal ID
+ *     responses:
+ *       200:
+ *         description: Deal deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin role required
+ *       404:
+ *         description: Deal not found
+ */
 // delete deal
 router.delete(
   "/:id",
