@@ -37,46 +37,58 @@ function FrontDesk() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [roomsRes, bookingsRes] = await Promise.all([
+        const results = await Promise.allSettled([
           apiService.getRooms(),
           apiService.getBookings(),
         ]);
 
-        setGroups(
-          roomsRes
-            .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber))
-            .map((r) => ({
-              id: r.id,
-              title: `Room ${r.roomNumber}`,
-              type: r.type,
-            }))
-        );
+        const roomsResult = results[0];
+        const bookingsResult = results[1];
 
-        // Only show CONFIRMED bookings in Front Desk calendar
-        setItems(
-          bookingsRes
-            .filter((b) => b.status === "CONFIRMED")
-            .map((b) => ({
-              id: b.id,
-              group: b.roomId,
-              title: `${b.customerFirstName || ""} ${
-                b.customerLastName || ""
-              }`.trim(),
-              start_time: moment.tz(b.startDate, "Europe/Belgrade"),
-              end_time: moment.tz(b.endDate, "Europe/Belgrade"),
-              customerFirstName: b.customerFirstName,
-              customerLastName: b.customerLastName,
-              customerEmail: b.customerEmail,
-              paymentType: b.paymentType,
-              checkIn: b.startDate,
-              checkOut: b.endDate,
-              room: b.room
-                ? { roomNumber: b.room.roomNumber, type: b.room.type }
-                : { roomNumber: "Unknown", type: "—" },
-              status: b.status,
-              paymentStatus: b.paymentStatus,
-            }))
-        );
+        // Only update state if requests succeeded
+        if (roomsResult.status === "fulfilled") {
+          setGroups(
+            roomsResult.value
+              .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber))
+              .map((r) => ({
+                id: r.id,
+                title: `Room ${r.roomNumber}`,
+                type: r.type,
+              }))
+          );
+        } else {
+          console.error("Failed to fetch rooms:", roomsResult.reason);
+        }
+
+        if (bookingsResult.status === "fulfilled") {
+          // Only show CONFIRMED bookings in Front Desk calendar
+          setItems(
+            bookingsResult.value
+              .filter((b) => b.status === "CONFIRMED")
+              .map((b) => ({
+                id: b.id,
+                group: b.roomId,
+                title: `${b.customerFirstName || ""} ${
+                  b.customerLastName || ""
+                }`.trim(),
+                start_time: moment.tz(b.startDate, "Europe/Belgrade"),
+                end_time: moment.tz(b.endDate, "Europe/Belgrade"),
+                customerFirstName: b.customerFirstName,
+                customerLastName: b.customerLastName,
+                customerEmail: b.customerEmail,
+                paymentType: b.paymentType,
+                checkIn: b.startDate,
+                checkOut: b.endDate,
+                room: b.room
+                  ? { roomNumber: b.room.roomNumber, type: b.room.type }
+                  : { roomNumber: "Unknown", type: "—" },
+                status: b.status,
+                paymentStatus: b.paymentStatus,
+              }))
+          );
+        } else {
+          console.error("Failed to fetch bookings:", bookingsResult.reason);
+        }
       } catch (err) {
         console.error("Failed to load front desk data", err);
       }
@@ -172,43 +184,49 @@ function FrontDesk() {
       setEditing(null);
       setError("");
       // Refresh data to ensure calendar is up to date
-      const [roomsRes, bookingsRes] = await Promise.all([
+      const results = await Promise.allSettled([
         apiService.getRooms(),
         apiService.getBookings(),
       ]);
-      setGroups(
-        roomsRes
-          .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber))
-          .map((r) => ({
-            id: r.id,
-            title: `Room ${r.roomNumber}`,
-            type: r.type,
-          }))
-      );
-      setItems(
-        bookingsRes
-          .filter((b) => b.status === "CONFIRMED")
-          .map((b) => ({
-            id: b.id,
-            group: b.roomId,
-            title: `${b.customerFirstName || ""} ${
-              b.customerLastName || ""
-            }`.trim(),
-            start_time: moment.tz(b.startDate, "Europe/Belgrade"),
-            end_time: moment.tz(b.endDate, "Europe/Belgrade"),
-            customerFirstName: b.customerFirstName,
-            customerLastName: b.customerLastName,
-            customerEmail: b.customerEmail,
-            paymentType: b.paymentType,
-            checkIn: b.startDate,
-            checkOut: b.endDate,
-            room: b.room
-              ? { roomNumber: b.room.roomNumber, type: b.room.type }
-              : { roomNumber: "Unknown", type: "—" },
-            status: b.status,
-            paymentStatus: b.paymentStatus,
-          }))
-      );
+      
+      if (results[0].status === "fulfilled") {
+        setGroups(
+          results[0].value
+            .sort((a, b) => a.roomNumber.localeCompare(b.roomNumber))
+            .map((r) => ({
+              id: r.id,
+              title: `Room ${r.roomNumber}`,
+              type: r.type,
+            }))
+        );
+      }
+      
+      if (results[1].status === "fulfilled") {
+        setItems(
+          results[1].value
+            .filter((b) => b.status === "CONFIRMED")
+            .map((b) => ({
+              id: b.id,
+              group: b.roomId,
+              title: `${b.customerFirstName || ""} ${
+                b.customerLastName || ""
+              }`.trim(),
+              start_time: moment.tz(b.startDate, "Europe/Belgrade"),
+              end_time: moment.tz(b.endDate, "Europe/Belgrade"),
+              customerFirstName: b.customerFirstName,
+              customerLastName: b.customerLastName,
+              customerEmail: b.customerEmail,
+              paymentType: b.paymentType,
+              checkIn: b.startDate,
+              checkOut: b.endDate,
+              room: b.room
+                ? { roomNumber: b.room.roomNumber, type: b.room.type }
+                : { roomNumber: "Unknown", type: "—" },
+              status: b.status,
+              paymentStatus: b.paymentStatus,
+            }))
+        );
+      }
     } catch (err) {
       console.error("Failed to save booking", err);
       const errorMessage =

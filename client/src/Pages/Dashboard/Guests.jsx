@@ -16,9 +16,16 @@ function Guests() {
   const fetchGuests = async () => {
     try {
       const data = await apiService.getGuests();
-      setGuests(data || []);
+      if (data && Array.isArray(data)) {
+        setGuests(data);
+      }
+      // If request fails, preserve existing guests data
     } catch (err) {
       console.error("Failed to fetch guests:", err);
+      // Don't clear existing data on error
+      if (guests.length === 0) {
+        setGuests([]);
+      }
     } finally {
       setLoading(false);
     }

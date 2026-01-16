@@ -51,6 +51,7 @@ const PREFIX_MAP = {
  * /rooms:
  *   get:
  *     summary: Get all rooms with optional filters
+ *     description: Retrieves all rooms with optional filtering by type, availability dates, and capacity. Returns booking status and active booking information.
  *     tags: [Rooms]
  *     parameters:
  *       - in: query
@@ -59,23 +60,28 @@ const PREFIX_MAP = {
  *           type: string
  *           enum: [SINGLE, DOUBLE, DELUXE, SUITE]
  *         description: Filter by room type
+ *         example: SINGLE
  *       - in: query
  *         name: startDate
  *         schema:
  *           type: string
  *           format: date
- *         description: Filter available rooms by start date
+ *         description: Filter available rooms by check-in date (YYYY-MM-DD)
+ *         example: "2025-02-15"
  *       - in: query
  *         name: endDate
  *         schema:
  *           type: string
  *           format: date
- *         description: Filter available rooms by end date
+ *         description: Filter available rooms by check-out date (YYYY-MM-DD). Must be used with startDate.
+ *         example: "2025-02-20"
  *       - in: query
  *         name: guests
  *         schema:
  *           type: integer
- *         description: Filter by minimum capacity
+ *           minimum: 1
+ *         description: Filter by minimum room capacity
+ *         example: 2
  *     responses:
  *       200:
  *         description: List of rooms
@@ -84,7 +90,42 @@ const PREFIX_MAP = {
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/Room'
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/Room'
+ *                   - type: object
+ *                     properties:
+ *                       bookingStatus:
+ *                         type: string
+ *                         enum: [AVAILABLE, OCCUPIED]
+ *                         example: "AVAILABLE"
+ *                       bookedCount:
+ *                         type: integer
+ *                         description: Number of confirmed bookings
+ *                         example: 3
+ *                       features:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *             examples:
+ *               rooms:
+ *                 value:
+ *                   - id: 1
+ *                     roomNumber: "101"
+ *                     floor: "1st Floor"
+ *                     type: "SINGLE"
+ *                     price: "100.00"
+ *                     capacity: 2
+ *                     description: "Spacious room with ocean view"
+ *                     imageUrl: "/uploads/rooms/room-1.jpg"
+ *                     cleanStatus: "CLEAN"
+ *                     bookingStatus: "AVAILABLE"
+ *                     bookedCount: 0
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 // get all rooms
 router.get("/", async (req, res) => {
@@ -141,6 +182,7 @@ router.get("/", async (req, res) => {
  * /rooms/{id}:
  *   get:
  *     summary: Get room by ID
+ *     description: Retrieves detailed information about a specific room including features, bookings, and current availability status.
  *     tags: [Rooms]
  *     parameters:
  *       - in: path
@@ -149,15 +191,62 @@ router.get("/", async (req, res) => {
  *         schema:
  *           type: integer
  *         description: Room ID
+ *         example: 1
  *     responses:
  *       200:
  *         description: Room details
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Room'
+ *               allOf:
+ *                 - $ref: '#/components/schemas/Room'
+ *                 - type: object
+ *                   properties:
+ *                     bookingStatus:
+ *                       type: string
+ *                       enum: [AVAILABLE, OCCUPIED]
+ *                     bookedCount:
+ *                       type: integer
+ *                     features:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *             examples:
+ *               room:
+ *                 value:
+ *                   id: 1
+ *                   roomNumber: "101"
+ *                   floor: "1st Floor"
+ *                   type: "SINGLE"
+ *                   price: "100.00"
+ *                   capacity: 2
+ *                   description: "Spacious room with ocean view"
+ *                   imageUrl: "/uploads/rooms/room-1.jpg"
+ *                   cleanStatus: "CLEAN"
+ *                   bookingStatus: "AVAILABLE"
+ *                   bookedCount: 0
+ *       400:
+ *         description: Invalid room ID format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Invalid room ID"
  *       404:
  *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Room not found"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 // get single room
 router.get("/:id", async (req, res) => {
@@ -189,6 +278,105 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /rooms:
+ *   post:
+ *     summary: Create a new room (Admin/Manager only)
+ *     description: Creates a new room. Room number is automatically generated based on room type (SINGLE: 100+, DOUBLE: 200+, DELUXE: 300+, SUITE: 400+). Image upload is optional.
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *               - price
+ *               - capacity
+ *               - description
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [SINGLE, DOUBLE, DELUXE, SUITE]
+ *                 description: Room type (determines room number prefix)
+ *                 example: "SINGLE"
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *                 description: Price per night
+ *                 example: 100.00
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Maximum number of guests
+ *                 example: 2
+ *               floor:
+ *                 type: string
+ *                 description: Floor location (optional)
+ *                 example: "1st Floor"
+ *               cleanStatus:
+ *                 type: string
+ *                 enum: [CLEAN, DIRTY, IN_PROGRESS]
+ *                 default: CLEAN
+ *                 description: Initial cleaning status
+ *                 example: "CLEAN"
+ *               description:
+ *                 type: string
+ *                 description: Room description
+ *                 example: "Spacious room with ocean view"
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Room image file (JPG, PNG, AVIF - max 5MB)
+ *     responses:
+ *       201:
+ *         description: Room created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Room'
+ *             examples:
+ *               created:
+ *                 value:
+ *                   id: 1
+ *                   roomNumber: "101"
+ *                   floor: "1st Floor"
+ *                   type: "SINGLE"
+ *                   price: "100.00"
+ *                   capacity: 2
+ *                   description: "Spacious room with ocean view"
+ *                   imageUrl: "/uploads/rooms/room-1234567890.jpg"
+ *                   cleanStatus: "CLEAN"
+ *                   bookingStatus: "AVAILABLE"
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // create Room
 router.post(
   "/",
@@ -246,6 +434,100 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /rooms/{id}:
+ *   put:
+ *     summary: Update room (Admin/Manager only)
+ *     description: Updates room details. All fields are optional - only provided fields will be updated. Image upload is optional.
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Room ID
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [SINGLE, DOUBLE, DELUXE, SUITE]
+ *                 example: "SINGLE"
+ *               price:
+ *                 type: number
+ *                 minimum: 0
+ *                 example: 120.00
+ *               capacity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 2
+ *               floor:
+ *                 type: string
+ *                 example: "2nd Floor"
+ *               cleanStatus:
+ *                 type: string
+ *                 enum: [CLEAN, DIRTY, IN_PROGRESS]
+ *                 example: "CLEAN"
+ *               description:
+ *                 type: string
+ *                 example: "Updated room description"
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: New room image file (JPG, PNG, AVIF - max 5MB)
+ *     responses:
+ *       200:
+ *         description: Room updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Room updated successfully"
+ *                 room:
+ *                   $ref: '#/components/schemas/Room'
+ *       400:
+ *         description: Invalid room ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // update Room
 router.put(
   "/:id",
@@ -286,6 +568,67 @@ router.put(
   }
 );
 
+/**
+ * @swagger
+ * /rooms/{id}:
+ *   delete:
+ *     summary: Delete room (Admin/Manager only)
+ *     description: Permanently deletes a room. Cannot delete rooms with active bookings. This action cannot be undone.
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Room ID
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Room deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Room deleted successfully"
+ *       400:
+ *         description: Invalid room ID or room has active booking
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Cannot delete room with active booking"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // delete Room
 router.delete(
   "/:id",
@@ -312,6 +655,99 @@ router.delete(
   }
 );
 
+/**
+ * @swagger
+ * /rooms/{id}/clean-status:
+ *   patch:
+ *     summary: Update room cleaning status (Admin/Manager only)
+ *     description: Updates only the cleaning status of a room. Used by housekeeping to track room cleaning progress.
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Room ID
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cleanStatus
+ *             properties:
+ *               cleanStatus:
+ *                 type: string
+ *                 enum: [CLEAN, DIRTY, IN_PROGRESS]
+ *                 description: New cleaning status
+ *                 example: "CLEAN"
+ *           examples:
+ *             clean:
+ *               value:
+ *                 cleanStatus: "CLEAN"
+ *             dirty:
+ *               value:
+ *                 cleanStatus: "DIRTY"
+ *             inProgress:
+ *               value:
+ *                 cleanStatus: "IN_PROGRESS"
+ *     responses:
+ *       200:
+ *         description: Clean status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Clean status updated successfully"
+ *                 room:
+ *                   $ref: '#/components/schemas/Room'
+ *       400:
+ *         description: Invalid cleanStatus value
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Room not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       400:
+ *         description: Invalid clean status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin or Manager role required
+ *       404:
+ *         description: Room not found
+ */
 // update cleaning status
 router.patch(
   "/:id/clean-status",

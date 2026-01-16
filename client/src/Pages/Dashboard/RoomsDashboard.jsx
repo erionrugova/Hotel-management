@@ -50,12 +50,28 @@ function RoomsDashboard() {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const [roomsData, bookingsData] = await Promise.all([
+        const results = await Promise.allSettled([
           apiService.getRooms(),
           apiService.getBookings(),
         ]);
+        
+        const roomsResult = results[0];
+        const bookingsResult = results[1];
+        
+        // If rooms request failed, preserve existing data and exit
+        if (roomsResult.status !== "fulfilled") {
+          console.error("Failed to fetch rooms:", roomsResult.reason);
+          setError("Failed to load rooms. Preserving existing data.");
+          setLoading(false);
+          return;
+        }
+        
+        const roomsData = roomsResult.value;
+        const bookingsData = bookingsResult.status === "fulfilled" ? bookingsResult.value : [];
+        
+        // Update rooms state
         setAllRooms(roomsData);
-
+        
         const today = moment.tz("Europe/Belgrade").startOf("day");
         const grouped = {};
 
@@ -95,7 +111,9 @@ function RoomsDashboard() {
           g.available = g.total - g.occupied;
         });
 
-        setRoomTypes(Object.values(grouped));
+        if (roomsResult.status === "fulfilled") {
+          setRoomTypes(Object.values(grouped));
+        }
       } catch (err) {
         console.error("Error fetching rooms:", err);
         setError("Failed to load rooms.");

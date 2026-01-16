@@ -12,12 +12,14 @@ services:
     environment:
       # Connect to existing MySQL container by IP (on bridge network)
       # Make sure hotel-mysql is running: docker start hotel-mysql
-      # MySQL IP: 172.17.0.3 (get with: docker inspect hotel-mysql --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-      DATABASE_URL: mysql://hotel_user:hotel_password@172.17.0.3:3306/hotel_management
+      # MySQL IP: Get current IP with: docker inspect hotel-mysql --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+      # Note: IP may change when container restarts. Consider using a custom Docker network instead.
+      DATABASE_URL: mysql://hotel_user:hotel_password@172.17.0.2:3306/hotel_management
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      JWT_EXPIRES_IN: 7d
+      JWT_EXPIRES_IN: 24h
       PORT: 3000
-      NODE_ENV: production
+      NODE_ENV: development
+      ENABLE_RATE_LIMIT: "false"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}

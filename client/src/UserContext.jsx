@@ -61,10 +61,17 @@ export const UserProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await apiService.login(credentials);
-      const { accessToken, user: userData } = response;
+      
+      // Validate response structure before destructuring
+      if (!response || typeof response !== 'object') {
+        throw new Error("Invalid response from server");
+      }
+
+      const accessToken = response.accessToken;
+      const userData = response.user;
 
       if (!accessToken || !userData) {
-        throw new Error("Invalid response from server");
+        throw new Error("Invalid response from server: missing accessToken or user data");
       }
 
       localStorage.setItem("token", accessToken);
@@ -75,7 +82,9 @@ export const UserProvider = ({ children }) => {
       return { success: true, user: userData };
     } catch (error) {
       console.error("Login failed:", error);
-      return { success: false, error: error.message };
+      // Ensure we always return a proper error message
+      const errorMessage = error?.message || error?.toString() || "Login failed. Please try again.";
+      return { success: false, error: errorMessage };
     }
   };
 

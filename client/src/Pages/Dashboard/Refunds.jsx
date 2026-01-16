@@ -13,6 +13,11 @@ function Refunds() {
       try {
         // Get all completed bookings (early check-outs)
         const bookings = await apiService.getBookings();
+        if (!Array.isArray(bookings)) {
+          console.warn("⚠️ Invalid bookings response");
+          setLoading(false);
+          return;
+        }
         const completedBookings = bookings.filter(
           (b) => b.status === "COMPLETED"
         );
@@ -54,6 +59,10 @@ function Refunds() {
         setRefunds(refundsData);
       } catch (err) {
         console.error("Failed to fetch refunds:", err);
+        // Preserve existing refunds data on error
+        if (refunds.length === 0) {
+          setRefunds([]);
+        }
       } finally {
         setLoading(false);
       }

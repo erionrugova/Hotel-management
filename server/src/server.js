@@ -34,17 +34,10 @@ export const prisma = new PrismaClient();
 
 app.use(helmet());
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === "development" ? 1000 : 100,
-  message: {
-    message: "Too many requests from this IP, please try again later.",
-  },
-});
-app.use(limiter);
-
-// CORS configuration
+// CORS configuration - MUST come before rate limiting to handle preflight requests
 const allowedOrigins = [
+  "http://localhost:3000", // Allow Swagger UI on same port
+  "http://127.0.0.1:3000", // Allow Swagger UI on same port (IP variant)
   "http://localhost:3001",
   "http://127.0.0.1:3001",
   "http://localhost:3004",
@@ -54,10 +47,11 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, Postman, or same-origin requests)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.warn("Blocked CORS request from:", origin);
+        console.warn("⚠️  Blocked CORS request from:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -69,9 +63,63 @@ app.use(
       "Origin",
       "X-Requested-With",
       "Accept",
+      "X-Requested-With",
     ],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+    maxAge: 86400, // 24 hours - cache preflight requests
   })
 );
+
+// Log CORS requests in development
+if (process.env.NODE_ENV === "development") {
+  app.use((req, res, next) => {
+    if (req.method === "OPTIONS") {
+      console.log(
+        "🔄 CORS preflight request:",
+        req.method,
+        req.path,
+        "Origin:",
+        req.headers.origin
+      );
+    }
+    next();
+  });
+}
+
+// Rate limiting - DISABLED in development by default
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === "development" ? 10000 : 5000, // Very high limit for development, increased for production too
+  message: {
+    message: "Too many requests from this IP, please try again later.",
+  },
+  // Skip rate limiting for OPTIONS requests (CORS preflight) and health checks
+  skip: (req) => {
+    if (req.method === "OPTIONS") return true;
+    if (req.path === "/api/health") return true;
+    return false;
+  },
+  // Standard headers for rate limit info
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Skip successful requests from counting (only count errors)
+  skipSuccessfulRequests: false,
+  // Skip failed requests from counting
+  skipFailedRequests: false,
+});
+
+// Only apply rate limiting if explicitly enabled (via ENABLE_RATE_LIMIT=true)
+// This allows disabling rate limiting even in production if needed
+if (process.env.ENABLE_RATE_LIMIT === "true") {
+  app.use(limiter);
+  console.log("✅ Rate limiting enabled");
+} else {
+  console.log(
+    "⚠️  Rate limiting DISABLED (set ENABLE_RATE_LIMIT=true to enable)"
+  );
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -111,10 +159,14 @@ app.get("/api/health", (req, res) =>
 
 // Swagger API Documentation
 try {
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "Hotel Management API Documentation",
-  }));
+  app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      customCss: ".swagger-ui .topbar { display: none }",
+      customSiteTitle: "Hotel Management API Documentation",
+    })
+  );
   console.log("✅ Swagger UI configured successfully");
 } catch (error) {
   console.error("❌ Swagger configuration error:", error);

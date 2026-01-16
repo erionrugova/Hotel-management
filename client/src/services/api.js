@@ -8,7 +8,15 @@ class ApiService {
 
   async request(endpoint, options = {}, retry = true) {
     const url = `${this.baseURL}${endpoint}`;
-    const token = localStorage.getItem("token");
+
+    // For auth endpoints (login/register), don't include token even if it exists
+    // This ensures clean login attempts without stale tokens
+    const isAuthEndpoint =
+      endpoint.startsWith("/auth/login") ||
+      endpoint.startsWith("/auth/register") ||
+      endpoint.startsWith("/auth/google");
+
+    const token = isAuthEndpoint ? null : localStorage.getItem("token");
 
     const headers = {
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -25,15 +33,55 @@ class ApiService {
       credentials: "include",
     };
 
+    // Log request details for debugging (only for auth endpoints to avoid spam)
+    if (isAuthEndpoint) {
+      console.log("🔵 Making auth request:", {
+        endpoint,
+        url,
+        hasToken: !!token,
+        method: options.method || "GET",
+      });
+    }
+
     try {
       const response = await fetch(url, config);
-      let data = null;
-      try {
-        data = await response.json();
-      } catch {}
 
-      // handle invalid token
-      if ((response.status === 401 || response.status === 403) && retry) {
+      // Log response for debugging auth requests
+      if (isAuthEndpoint) {
+        console.log("🔵 Auth response received:", {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+        });
+      }
+      let data = null;
+
+      // Try to parse JSON response - handle both success and error responses
+      try {
+        const text = await response.text();
+        if (text && text.trim()) {
+          try {
+            data = JSON.parse(text);
+          } catch (parseError) {
+            // Response text exists but is not valid JSON
+            // This can happen with error responses that return plain text
+            console.warn("Response is not valid JSON:", parseError);
+            // Store the text as the error message
+            data = { error: text, message: text };
+          }
+        }
+      } catch (textError) {
+        // Failed to read response text (shouldn't happen, but handle gracefully)
+        console.warn("Failed to read response text:", textError);
+      }
+
+      // handle invalid token - but NOT for auth endpoints (login/register)
+      // Auth endpoints return 401 for invalid credentials, not expired tokens
+      if (
+        (response.status === 401 || response.status === 403) &&
+        retry &&
+        !isAuthEndpoint
+      ) {
         console.warn("🔄 Access token expired or invalid, trying refresh...");
         const refreshed = await this.refreshAccessToken();
         if (refreshed) {
@@ -52,22 +100,106 @@ class ApiService {
           data?.message ||
           (Array.isArray(data?.errors) && data.errors[0]?.msg) ||
           `HTTP ${response.status}`;
+
+        // Log error details for auth endpoints
+        if (isAuthEndpoint) {
+          console.log("🔴 Auth request failed:", {
+            status: response.status,
+            message: msg,
+            data: data,
+          });
+        }
+
         // Create an error object that includes response data for proper error handling
         const error = new Error(msg);
-        error.response = { data, status: response.status };
+        error.response = { data: data || {}, status: response.status };
         throw error;
       }
 
+      // Log success for auth endpoints
+      if (isAuthEndpoint) {
+        console.log("✅ Auth request successful:", {
+          hasAccessToken: !!data?.accessToken,
+          hasUser: !!data?.user,
+        });
+      }
+
+      // For successful responses, data should exist
+      // If it's null, that's unusual but we'll return it and let the caller handle it
       return data;
     } catch (error) {
-      console.error("❌ API request failed:", error.message);
-      // If it's already an error with response data, re-throw it
-      if (error.response) {
+      // Log the error for debugging auth requests
+      if (isAuthEndpoint) {
+        console.error("🔴 Auth request error caught:", {
+          message: error.message,
+          name: error.name,
+          hasResponse: !!error.response,
+          responseStatus: error.response?.status,
+          stack: error.stack?.split("\n").slice(0, 3).join("\n"),
+        });
+      }
+
+      // If it's already an error with response data (from server), re-throw it immediately
+      // This includes 401 errors from login attempts with wrong credentials
+      // Check for valid HTTP status codes (100-599)
+      if (
+        error.response &&
+        typeof error.response.status === "number" &&
+        error.response.status >= 100 &&
+        error.response.status < 600
+      ) {
+        if (isAuthEndpoint) {
+          console.log("🔄 Re-throwing server error (valid HTTP status)");
+        }
         throw error;
       }
-      // Otherwise, create a proper error object
-      const apiError = new Error(error.message || "API request failed");
-      apiError.response = { data: { error: error.message }, status: 500 };
+
+      // For network errors (like "Failed to fetch"), provide a more helpful error message
+      // Network errors occur when fetch() itself fails, before we get a response
+      const errorMessage =
+        error?.message ||
+        String(error) ||
+        "Network error: Unable to connect to server";
+
+      // Check for network errors
+      const isNetworkError =
+        errorMessage.includes("Failed to fetch") ||
+        errorMessage.includes("NetworkError") ||
+        errorMessage.includes("Network request failed") ||
+        error instanceof TypeError ||
+        (error.name === "TypeError" &&
+          errorMessage.toLowerCase().includes("fetch"));
+
+      let finalErrorMessage;
+      if (isNetworkError) {
+        finalErrorMessage =
+          "Unable to connect to server. Please check if the server is running and try again.";
+      } else if (errorMessage.includes("CORS")) {
+        finalErrorMessage =
+          "CORS error: The server is blocking the request. Please check server configuration.";
+      } else {
+        finalErrorMessage = errorMessage;
+      }
+
+      // Log error details safely
+      console.error("❌ API request failed:", finalErrorMessage);
+      console.error("❌ Request URL:", url);
+      if (isNetworkError) {
+        console.error(
+          "❌ This appears to be a network connectivity issue. Check:"
+        );
+        console.error(
+          "   1. Is the server running on",
+          this.baseURL.replace("/api", ""),
+          "?"
+        );
+        console.error("   2. Are there any CORS issues?");
+        console.error("   3. Is there a firewall blocking the connection?");
+      }
+
+      const apiError = new Error(finalErrorMessage);
+      apiError.response = { data: { error: finalErrorMessage }, status: 0 };
+      apiError.isNetworkError = isNetworkError;
       throw apiError;
     }
   }

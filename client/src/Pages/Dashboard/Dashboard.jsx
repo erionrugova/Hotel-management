@@ -61,14 +61,69 @@ function Dashboard() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      setLoading(true);
       try {
-        const [roomsData, bookingsData, guestsData, contactData] =
-          await Promise.all([
-            apiService.getRooms(),
-            apiService.getBookings(),
-            apiService.getGuests(),
-            apiService.getMessages(),
-          ]);
+        // Use Promise.allSettled to handle partial failures gracefully
+        const results = await Promise.allSettled([
+          apiService.getRooms(),
+          apiService.getBookings(),
+          apiService.getGuests(),
+          apiService.getMessages(),
+        ]);
+
+        // Extract data from settled promises
+        // Only use new data if request succeeded, otherwise we'll preserve existing state
+        const roomsResult = results[0];
+        const bookingsResult = results[1];
+        const guestsResult = results[2];
+        const contactResult = results[3];
+
+        // Only proceed with state updates if we got at least some successful data
+        // This prevents clearing existing data when all requests fail
+        const hasSuccessfulData =
+          roomsResult.status === "fulfilled" ||
+          bookingsResult.status === "fulfilled" ||
+          guestsResult.status === "fulfilled" ||
+          contactResult.status === "fulfilled";
+
+        if (!hasSuccessfulData) {
+          console.warn(
+            "⚠️ All dashboard requests failed. Preserving existing data."
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Use successful data, or empty arrays for failed requests (will be handled gracefully)
+        const roomsData =
+          roomsResult.status === "fulfilled" ? roomsResult.value : [];
+        const bookingsData =
+          bookingsResult.status === "fulfilled" ? bookingsResult.value : [];
+        const guestsData =
+          guestsResult.status === "fulfilled" ? guestsResult.value : [];
+        const contactData =
+          contactResult.status === "fulfilled" ? contactResult.value : [];
+
+        // Log any failures for debugging
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            const endpointNames = ["rooms", "bookings", "guests", "messages"];
+            console.error(
+              `Failed to fetch ${endpointNames[index]}:`,
+              result.reason
+            );
+            // If it's a network/CORS error, log it prominently
+            if (
+              result.reason?.message?.includes("connect") ||
+              result.reason?.message?.includes("CORS") ||
+              result.reason?.isNetworkError
+            ) {
+              console.warn(
+                `⚠️ Network/CORS error for ${endpointNames[index]}. Data will be preserved.`
+              );
+            }
+          }
+        });
 
         const now = moment.tz("Europe/Belgrade");
         const today = now.clone().startOf("day");
@@ -146,195 +201,221 @@ function Dashboard() {
           return start.isBefore(weekEnd) && end.isAfter(weekStart);
         }).length;
 
-        setStats({
-          checkIn: todayCheckIns.length,
-          checkOut: todayCheckOuts.length,
-          inHotel,
-          availableRooms,
-          occupiedRooms,
-          tomorrow: tomorrowOccupancy,
-          thisWeek: weekOccupancy,
-        });
+        // Only update state if we have valid data
+        if (roomsResult.status === "fulfilled") {
+          setStats({
+            checkIn: todayCheckIns.length,
+            checkOut: todayCheckOuts.length,
+            inHotel,
+            availableRooms,
+            occupiedRooms,
+            tomorrow: tomorrowOccupancy,
+            thisWeek: weekOccupancy,
+          });
+        }
 
-        setBookings(bookingsData);
-        setMessages(contactData);
+        if (bookingsResult.status === "fulfilled") {
+          setBookings(bookingsData);
+        }
 
-        const years = [
-          ...new Set(
-            bookingsData.map((b) =>
-              moment.tz(b.startDate, "Europe/Belgrade").year()
-            )
-          ),
-        ].sort((a, b) => b - a);
-        setAvailableYears(years);
+        if (contactResult.status === "fulfilled") {
+          setMessages(contactData);
+        }
 
-        // Occupancy stats
-        const totalRooms = roomsData.length || 1;
-        const months = Array.from({ length: 12 }, (_, i) => {
-          const monthStart = moment
-            .tz("Europe/Belgrade")
-            .year(selectedYear)
-            .month(i)
-            .startOf("month");
-          const monthEnd = moment
-            .tz("Europe/Belgrade")
-            .year(selectedYear)
-            .month(i)
-            .endOf("month");
-          const daysInMonth = monthEnd.date();
-          const totalRoomDays = totalRooms * daysInMonth;
-          let occupiedRoomDays = 0;
+        if (bookingsResult.status === "fulfilled") {
+          const years = [
+            ...new Set(
+              bookingsData.map((b) =>
+                moment.tz(b.startDate, "Europe/Belgrade").year()
+              )
+            ),
+          ].sort((a, b) => b - a);
+          setAvailableYears(years);
+        }
 
-          confirmedBookings.forEach((b) => {
-            const bookingStart = moment.tz(b.startDate, "Europe/Belgrade");
-            const bookingEnd = moment.tz(b.endDate, "Europe/Belgrade");
-            if (
-              bookingStart.isBefore(monthEnd) &&
-              bookingEnd.isAfter(monthStart)
-            ) {
-              const overlapStart = moment.max(bookingStart, monthStart);
-              const overlapEnd = moment.min(bookingEnd, monthEnd);
-              if (overlapStart.isBefore(overlapEnd)) {
-                occupiedRoomDays += overlapEnd.diff(overlapStart, "days");
+        // Occupancy stats - only if we have rooms data
+        if (roomsResult.status === "fulfilled") {
+          const totalRooms = roomsData.length || 1;
+          const months = Array.from({ length: 12 }, (_, i) => {
+            const monthStart = moment
+              .tz("Europe/Belgrade")
+              .year(selectedYear)
+              .month(i)
+              .startOf("month");
+            const monthEnd = moment
+              .tz("Europe/Belgrade")
+              .year(selectedYear)
+              .month(i)
+              .endOf("month");
+            const daysInMonth = monthEnd.date();
+            const totalRoomDays = totalRooms * daysInMonth;
+            let occupiedRoomDays = 0;
+
+            confirmedBookings.forEach((b) => {
+              const bookingStart = moment.tz(b.startDate, "Europe/Belgrade");
+              const bookingEnd = moment.tz(b.endDate, "Europe/Belgrade");
+              if (
+                bookingStart.isBefore(monthEnd) &&
+                bookingEnd.isAfter(monthStart)
+              ) {
+                const overlapStart = moment.max(bookingStart, monthStart);
+                const overlapEnd = moment.min(bookingEnd, monthEnd);
+                if (overlapStart.isBefore(overlapEnd)) {
+                  occupiedRoomDays += overlapEnd.diff(overlapStart, "days");
+                }
               }
+            });
+
+            const occupiedPercent = Math.round(
+              (occupiedRoomDays / totalRoomDays) * 100
+            );
+
+            return {
+              month: moment().month(i).format("MMM"),
+              occupied: occupiedPercent,
+              available: 100 - occupiedPercent,
+            };
+          });
+
+          setOccupancyData(months);
+        }
+
+        if (bookingsResult.status === "fulfilled") {
+          const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
+            const monthStart = moment
+              .tz("Europe/Belgrade")
+              .year(selectedYear)
+              .month(i)
+              .startOf("month");
+            const monthEnd = moment
+              .tz("Europe/Belgrade")
+              .year(selectedYear)
+              .month(i)
+              .endOf("month");
+
+            const total = bookingsData
+              .filter(
+                (b) =>
+                  b.status === "CONFIRMED" &&
+                  b.paymentStatus === "PAID" &&
+                  moment
+                    .tz(b.startDate, "Europe/Belgrade")
+                    .isBetween(monthStart, monthEnd, null, "[]")
+              )
+              .reduce((sum, b) => sum + (parseFloat(b.finalPrice) || 0), 0);
+
+            return {
+              month: moment().month(i).format("MMM"),
+              revenue: total,
+            };
+          });
+
+          setRevenueData(monthlyRevenue);
+        }
+
+        // Room types - only if we have rooms data
+        if (roomsResult.status === "fulfilled") {
+          const roomTypes = {};
+          roomsData.forEach((room) => {
+            if (!roomTypes[room.type]) {
+              roomTypes[room.type] = {
+                total: 0,
+                booked: 0,
+                price: room.price || 0,
+              };
+            }
+            roomTypes[room.type].total++;
+          });
+
+          const isActiveBooking = (booking) => {
+            const start = moment
+              .tz(booking.startDate, "Europe/Belgrade")
+              .startOf("day");
+            const end = moment
+              .tz(booking.endDate, "Europe/Belgrade")
+              .startOf("day");
+            if (roomPeriod === "today")
+              return (
+                start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
+              );
+            if (roomPeriod === "tomorrow")
+              return (
+                start.isSameOrBefore(tomorrow, "day") &&
+                end.isAfter(tomorrow, "day")
+              );
+            if (roomPeriod === "week")
+              return (
+                start.isSameOrBefore(weekEnd, "day") &&
+                end.isAfter(weekStart, "day")
+              );
+            return false;
+          };
+
+          bookingsData.forEach((b) => {
+            if (
+              b.status === "CONFIRMED" &&
+              b.room?.type &&
+              isActiveBooking(b)
+            ) {
+              const type = b.room.type.toUpperCase();
+              if (!roomTypes[type])
+                roomTypes[type] = { total: 0, booked: 0, price: 0 };
+              roomTypes[type].booked++;
             }
           });
 
-          const occupiedPercent = Math.round(
-            (occupiedRoomDays / totalRoomDays) * 100
+          setRooms(
+            Object.entries(roomTypes).map(([type, data]) => ({
+              type: type.replace("_", " "),
+              ...data,
+            }))
+          );
+        }
+
+        // Pie chart - only if we have bookings data
+        if (bookingsResult.status === "fulfilled") {
+          const activeBookings = bookingsData.filter((b) => {
+            if (b.status !== "CONFIRMED" || !b.room?.type) return false;
+            if (chartMode === "active") {
+              const start = moment
+                .tz(b.startDate, "Europe/Belgrade")
+                .startOf("day");
+              const end = moment
+                .tz(b.endDate, "Europe/Belgrade")
+                .startOf("day");
+              return (
+                start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
+              );
+            }
+            return true;
+          });
+
+          const chartCounts = {};
+          activeBookings.forEach((b) => {
+            const type = b.room.type.toUpperCase();
+            if (!chartCounts[type]) chartCounts[type] = 0;
+            chartCounts[type]++;
+          });
+
+          const totalChartCount = Object.values(chartCounts).reduce(
+            (a, b) => a + b,
+            0
           );
 
-          return {
-            month: moment().month(i).format("MMM"),
-            occupied: occupiedPercent,
-            available: 100 - occupiedPercent,
-          };
-        });
+          const chartData = Object.entries(chartCounts).map(
+            ([type, count]) => ({
+              name: type,
+              count,
+              percent:
+                totalChartCount > 0
+                  ? ((count / totalChartCount) * 100).toFixed(2)
+                  : 0,
+              value: count,
+            })
+          );
 
-        setOccupancyData(months);
-
-        const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
-          const monthStart = moment
-            .tz("Europe/Belgrade")
-            .year(selectedYear)
-            .month(i)
-            .startOf("month");
-          const monthEnd = moment
-            .tz("Europe/Belgrade")
-            .year(selectedYear)
-            .month(i)
-            .endOf("month");
-
-          const total = bookingsData
-            .filter(
-              (b) =>
-                b.status === "CONFIRMED" &&
-                b.paymentStatus === "PAID" &&
-                moment
-                  .tz(b.startDate, "Europe/Belgrade")
-                  .isBetween(monthStart, monthEnd, null, "[]")
-            )
-            .reduce((sum, b) => sum + (parseFloat(b.finalPrice) || 0), 0);
-
-          return {
-            month: moment().month(i).format("MMM"),
-            revenue: total,
-          };
-        });
-
-        setRevenueData(monthlyRevenue);
-
-        // Room types
-        const roomTypes = {};
-        roomsData.forEach((room) => {
-          if (!roomTypes[room.type]) {
-            roomTypes[room.type] = {
-              total: 0,
-              booked: 0,
-              price: room.price || 0,
-            };
-          }
-          roomTypes[room.type].total++;
-        });
-
-        const isActiveBooking = (booking) => {
-          const start = moment
-            .tz(booking.startDate, "Europe/Belgrade")
-            .startOf("day");
-          const end = moment
-            .tz(booking.endDate, "Europe/Belgrade")
-            .startOf("day");
-          if (roomPeriod === "today")
-            return (
-              start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
-            );
-          if (roomPeriod === "tomorrow")
-            return (
-              start.isSameOrBefore(tomorrow, "day") &&
-              end.isAfter(tomorrow, "day")
-            );
-          if (roomPeriod === "week")
-            return (
-              start.isSameOrBefore(weekEnd, "day") &&
-              end.isAfter(weekStart, "day")
-            );
-          return false;
-        };
-
-        bookingsData.forEach((b) => {
-          if (b.status === "CONFIRMED" && b.room?.type && isActiveBooking(b)) {
-            const type = b.room.type.toUpperCase();
-            if (!roomTypes[type])
-              roomTypes[type] = { total: 0, booked: 0, price: 0 };
-            roomTypes[type].booked++;
-          }
-        });
-
-        setRooms(
-          Object.entries(roomTypes).map(([type, data]) => ({
-            type: type.replace("_", " "),
-            ...data,
-          }))
-        );
-
-        // Pie chart
-        const activeBookings = bookingsData.filter((b) => {
-          if (b.status !== "CONFIRMED" || !b.room?.type) return false;
-          if (chartMode === "active") {
-            const start = moment
-              .tz(b.startDate, "Europe/Belgrade")
-              .startOf("day");
-            const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
-            return (
-              start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
-            );
-          }
-          return true;
-        });
-
-        const chartCounts = {};
-        activeBookings.forEach((b) => {
-          const type = b.room.type.toUpperCase();
-          if (!chartCounts[type]) chartCounts[type] = 0;
-          chartCounts[type]++;
-        });
-
-        const totalChartCount = Object.values(chartCounts).reduce(
-          (a, b) => a + b,
-          0
-        );
-
-        const chartData = Object.entries(chartCounts).map(([type, count]) => ({
-          name: type,
-          count,
-          percent:
-            totalChartCount > 0
-              ? ((count / totalChartCount) * 100).toFixed(2)
-              : 0,
-          value: count,
-        }));
-
-        setRoomTypeChart(chartData);
+          setRoomTypeChart(chartData);
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
       } finally {

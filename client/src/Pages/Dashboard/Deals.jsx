@@ -29,12 +29,19 @@ function Deals() {
       const data = await apiService.getDeals();
       if (!Array.isArray(data)) {
         console.warn("⚠️ Deals response invalid:", data);
-        setDeals([]);
+        // Only clear if we don't have existing data
+        if (deals.length === 0) {
+          setDeals([]);
+        }
         return;
       }
       setDeals(data);
     } catch (err) {
       console.error("Failed to fetch deals:", err);
+      // Preserve existing deals data on error
+      if (deals.length === 0) {
+        setDeals([]);
+      }
     }
   };
 
