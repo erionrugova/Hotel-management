@@ -1,5 +1,6 @@
 import express from "express";
 import moment from "moment-timezone";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../server.js";
 import { authenticateToken, authorize } from "../middleware/auth.js";
 
@@ -231,6 +232,54 @@ router.get(
         },
         orderBy: { startDate: "desc" },
       });
+
+      // Automatically set status to COMPLETED for regular checkouts (past check-out date)
+      const today = moment.tz("Europe/Belgrade").startOf("day");
+      const bookingsToUpdate = [];
+
+      for (const booking of bookings) {
+        // Only update CONFIRMED bookings that have passed their check-out date
+        if (booking.status === "CONFIRMED" || booking.status === "PENDING") {
+          const checkOutDate = moment.tz(booking.endDate, "Europe/Belgrade").startOf("day");
+          
+          // If check-out date has passed, automatically set to COMPLETED
+          if (today.isAfter(checkOutDate, "day")) {
+            bookingsToUpdate.push(booking.id);
+          }
+        }
+      }
+
+      // Update all bookings that need to be marked as COMPLETED
+      if (bookingsToUpdate.length > 0) {
+        await prisma.booking.updateMany({
+          where: {
+            id: { in: bookingsToUpdate },
+            status: { in: ["CONFIRMED", "PENDING"] },
+          },
+          data: {
+            status: "COMPLETED",
+            refundAmount: new Prisma.Decimal(0), // No refund for regular checkout
+          },
+        });
+
+        // Also update associated guest records
+        await prisma.guest.updateMany({
+          where: {
+            bookingId: { in: bookingsToUpdate },
+          },
+          data: {
+            status: "COMPLETED",
+          },
+        });
+
+        // Update the bookings array with new statuses (no need to refetch)
+        bookings.forEach(b => {
+          if (bookingsToUpdate.includes(b.id)) {
+            b.status = "COMPLETED";
+            b.refundAmount = new Prisma.Decimal(0);
+          }
+        });
+      }
 
       const cleaned = bookings.map((b) => ({
         ...b,
@@ -561,6 +610,10 @@ router.post("/", authenticateToken, async (req, res) => {
 
     const finalPrice = pricePerNight * nights;
 
+    // Determine payment status based on payment type
+    // CARD and PAYPAL are automatically PAID, CASH remains PENDING
+    const paymentStatus = (paymentType === "CARD" || paymentType === "PAYPAL") ? "PAID" : "PENDING";
+
     // create booking with first available room
     // Bookings are automatically CONFIRMED to immediately reflect in availability
     const newBooking = await prisma.booking.create({
@@ -573,7 +626,7 @@ router.post("/", authenticateToken, async (req, res) => {
         customerLastName,
         customerEmail,
         paymentType,
-        paymentStatus: "PENDING",
+        paymentStatus, // Automatically set based on payment type
         baseRate: availableRoom.price,
         finalPrice,
         dealId: validatedDealId,
@@ -590,16 +643,14 @@ router.post("/", authenticateToken, async (req, res) => {
         bookingId: newBooking.id,
         roomId: availableRoom.id,
         status: "CONFIRMED", // Auto-confirm guest status to match booking
-        paymentStatus: "PENDING",
+        paymentStatus, // Match booking payment status
         finalPrice,
         dealId: dealId ? parseInt(dealId, 10) : null,
       },
     });
 
-    res.status(201).json({
-      message: `Booking created successfully for room ${availableRoom.roomNumber}`,
-      booking: localizeBookingDates([newBooking])[0],
-    });
+    // Return the booking directly (consistent with PATCH endpoint)
+    res.status(201).json(localizeBookingDates([newBooking])[0]);
   } catch (err) {
     console.error("Error creating booking:", err);
     res.status(500).json({ error: "Failed to create booking" });
@@ -837,20 +888,66 @@ router.patch(
         finalPrice = pricePerNight * nights;
       }
 
+      // Calculate refund if status is being changed to CANCELLED
+      let refundAmount = null;
+      if (status === "CANCELLED" && booking.status !== "CANCELLED") {
+        // Get rate policy for the room
+        const rate = await prisma.rate.findFirst({
+          where: { roomId: booking.roomId },
+          orderBy: { createdAt: "desc" },
+        });
+
+        const policy = rate?.policy || "NON_REFUNDABLE";
+        const today = moment.tz("Europe/Belgrade").startOf("day");
+        const checkInDate = moment.tz(booking.startDate, "Europe/Belgrade").startOf("day");
+        const daysUntilCheckIn = checkInDate.diff(today, "days");
+        const originalPrice = parseFloat(booking.finalPrice || 0);
+
+        switch (policy) {
+          case "NON_REFUNDABLE":
+            refundAmount = 0;
+            break;
+          
+          case "FLEXIBLE":
+            // Full refund always available
+            refundAmount = originalPrice;
+            break;
+          
+          case "STRICT":
+            // Refund only if cancelled 7+ days before check-in
+            if (daysUntilCheckIn >= 7) {
+              refundAmount = originalPrice;
+            } else {
+              refundAmount = 0;
+            }
+            break;
+          
+          default:
+            refundAmount = 0;
+        }
+      }
+
+      const updateData = {
+        roomId: newRoomId,
+        startDate: newStart,
+        endDate: newEnd,
+        customerFirstName: customerFirstName ?? booking.customerFirstName,
+        customerLastName: customerLastName ?? booking.customerLastName,
+        customerEmail: customerEmail ?? booking.customerEmail,
+        paymentType: paymentType ?? booking.paymentType,
+        status: status ?? booking.status,
+        dealId: newDealId,
+        finalPrice: finalPrice,
+      };
+
+      // Only update refundAmount if we calculated it (status changed to CANCELLED)
+      if (refundAmount !== null) {
+        updateData.refundAmount = new Prisma.Decimal(refundAmount);
+      }
+
       const updated = await prisma.booking.update({
         where: { id: bookingId },
-        data: {
-          roomId: newRoomId,
-          startDate: newStart,
-          endDate: newEnd,
-          customerFirstName: customerFirstName ?? booking.customerFirstName,
-          customerLastName: customerLastName ?? booking.customerLastName,
-          customerEmail: customerEmail ?? booking.customerEmail,
-          paymentType: paymentType ?? booking.paymentType,
-          status: status ?? booking.status,
-          dealId: newDealId,
-          finalPrice: finalPrice,
-        },
+        data: updateData,
         include: { room: true, deal: true },
       });
 

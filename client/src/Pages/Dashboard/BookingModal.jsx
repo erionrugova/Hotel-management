@@ -113,22 +113,22 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg animate-fadeIn">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">
+    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-fadeIn text-slate-100">
+        <h2 className="text-xl font-semibold mb-4 text-white">
           {booking ? "Edit Booking" : "New Booking"}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Room
             </label>
             <select
               value={form.roomId}
               onChange={(e) => setForm({ ...form, roomId: e.target.value })}
               required
-              className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               <option value="">Select room</option>
               {groups.map((g) => (
@@ -140,13 +140,13 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Deal (optional)
             </label>
             <select
               value={form.dealId}
               onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-              className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               <option value="">No deal</option>
               {deals.map((d) => (
@@ -159,7 +159,7 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-300 mb-1">
                 First Name
               </label>
               <input
@@ -168,11 +168,11 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
                 onChange={(e) =>
                   setForm({ ...form, customerFirstName: e.target.value })
                 }
-                className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-300 mb-1">
                 Last Name
               </label>
               <input
@@ -181,13 +181,13 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
                 onChange={(e) =>
                   setForm({ ...form, customerLastName: e.target.value })
                 }
-                className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Email
             </label>
             <input
@@ -196,13 +196,13 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
               onChange={(e) =>
                 setForm({ ...form, customerEmail: e.target.value })
               }
-              className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-300 mb-1">
                 Check-In
               </label>
               <input
@@ -212,11 +212,11 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
                   setForm({ ...form, startDate: e.target.value })
                 }
                 required
-                className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-300 mb-1">
                 Check-Out
               </label>
               <input
@@ -224,13 +224,13 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
                 value={form.endDate}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                 required
-                className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Payment Type
             </label>
             <select
@@ -238,7 +238,7 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
               onChange={(e) =>
                 setForm({ ...form, paymentType: e.target.value })
               }
-              className="border rounded px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               <option value="">Select</option>
               <option value="CASH">Cash</option>
@@ -248,14 +248,14 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
           </div>
 
           {Number(roomRate) > 0 && (
-            <div className="p-3 mt-2 bg-gray-50 rounded-md border text-sm text-gray-700">
+            <div className="p-3 mt-2 bg-slate-800/50 rounded-md border border-slate-700 text-sm text-slate-300">
               <p>
                 <b>Rate:</b> ${Number(roomRate).toFixed(2)} / night
               </p>
               <p>
                 <b>Nights:</b> {nights}
               </p>
-              <p className="text-blue-700 font-semibold mt-1">
+              <p className="text-indigo-400 font-semibold mt-1">
                 Total: ${Number(finalPrice).toFixed(2)}
               </p>
             </div>
@@ -265,13 +265,13 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+              className="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-600 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition shadow-lg shadow-indigo-500/20"
             >
               Save
             </button>

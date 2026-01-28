@@ -27,16 +27,44 @@ function Rate() {
     fetchDeals();
   }, []);
 
+  // Helper function to filter and sort rates: one per room type, ordered Single → Double → Deluxe → Suite
+  const filterAndSortRates = (ratesData) => {
+    // Group rates by room type and keep only one per type (first one found)
+    const ratesByType = new Map();
+    ratesData.forEach((rate) => {
+      const roomType = rate.room?.type || "";
+      if (roomType && !ratesByType.has(roomType)) {
+        ratesByType.set(roomType, rate);
+      }
+    });
+
+    // Convert map to array and sort: Single, Double, Deluxe, Suite, then alphabetically
+    const typeOrder = ["SINGLE", "DOUBLE", "DELUXE", "SUITE"];
+    return Array.from(ratesByType.values()).sort((a, b) => {
+      const typeA = a.room?.type || "";
+      const typeB = b.room?.type || "";
+      
+      const indexA = typeOrder.indexOf(typeA);
+      const indexB = typeOrder.indexOf(typeB);
+      
+      // If both are in the predefined order, sort by their index
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      // If only A is in predefined order, it comes first
+      if (indexA !== -1) return -1;
+      // If only B is in predefined order, it comes first
+      if (indexB !== -1) return 1;
+      // If neither is in predefined order, sort alphabetically
+      return typeA.localeCompare(typeB);
+    });
+  };
+
   const fetchRates = async () => {
     try {
       const data = await apiService.getRates();
-
-      const order = { SINGLE: 1, DOUBLE: 2, DELUXE: 3, SUITE: 4 };
-      const sorted = [...data].sort(
-        (a, b) => order[a.room?.type] - order[b.room?.type]
-      );
-
-      setRates(sorted);
+      const filteredAndSorted = filterAndSortRates(data);
+      setRates(filteredAndSorted);
     } catch (err) {
       console.error("Failed to fetch rates:", err);
     } finally {
@@ -47,8 +75,29 @@ function Rate() {
   const fetchRooms = async () => {
     try {
       const data = await apiService.getRooms();
-      const order = { SINGLE: 1, DOUBLE: 2, DELUXE: 3, SUITE: 4 };
-      const sorted = [...data].sort((a, b) => order[a.type] - order[b.type]);
+      
+      // Group rooms by type and keep only one room per type (for rate creation)
+      const roomsByType = new Map();
+      data.forEach((room) => {
+        if (!roomsByType.has(room.type)) {
+          roomsByType.set(room.type, room);
+        }
+      });
+
+      // Sort: Single, Double, Deluxe, Suite, then alphabetically
+      const typeOrder = ["SINGLE", "DOUBLE", "DELUXE", "SUITE"];
+      const sorted = Array.from(roomsByType.values()).sort((a, b) => {
+        const indexA = typeOrder.indexOf(a.type);
+        const indexB = typeOrder.indexOf(b.type);
+        
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return a.type.localeCompare(b.type);
+      });
+      
       setRooms(sorted);
     } catch (err) {
       console.error("Failed to fetch rooms:", err);
@@ -83,7 +132,11 @@ function Rate() {
         dealId: form.dealId ? parseInt(form.dealId, 10) : null,
       });
 
-      setRates((prev) => [saved, ...prev]);
+      // Refetch rates to ensure we have the room data and apply filtering
+      const allRates = await apiService.getRates();
+      const filteredAndSorted = filterAndSortRates(allRates);
+      setRates(filteredAndSorted);
+      
       setShowModal(false);
       setForm({ roomId: "", policy: "", rate: "", dealId: "" });
     } catch (err) {
@@ -111,7 +164,11 @@ function Rate() {
         dealId: editForm.dealId ? parseInt(editForm.dealId, 10) : null,
       });
 
-      setRates((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      // Refetch rates to ensure we have the room data and apply filtering
+      const allRates = await apiService.getRates();
+      const filteredAndSorted = filterAndSortRates(allRates);
+      setRates(filteredAndSorted);
+      
       setEditModal(false);
       setEditForm(null);
     } catch (err) {
@@ -122,157 +179,204 @@ function Rate() {
   const handleDeleteRate = async (id) => {
     try {
       await apiService.deleteRate(id);
-      setRates((prev) => prev.filter((r) => r.id !== id));
+      // Refetch rates to ensure proper filtering after deletion
+      const allRates = await apiService.getRates();
+      const filteredAndSorted = filterAndSortRates(allRates);
+      setRates(filteredAndSorted);
     } catch (err) {
       console.error("Failed to delete rate:", err);
     }
   };
 
-  if (loading) return <div className="p-6">Loading rates...</div>;
+  if (loading) return (
+    <div className="p-10 min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-lg animate-pulse text-indigo-400 font-medium">Loading rates...</div>
+      </div>
+    </div>
+  );
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6">Rates</h2>
+    <div className="p-10 min-h-screen bg-slate-950 text-slate-100">
+      <h2 className="text-3xl font-semibold mb-8 text-white">Rates Management</h2>
 
-      <div className="flex justify-end mb-4 space-x-2">
+      <div className="flex justify-end mb-6 space-x-2">
         {(isAdmin() || isManager()) && (
           <button
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white"
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-lg shadow-indigo-500/20 font-medium"
           >
-            Add rate
+            + Add Rate
           </button>
         )}
       </div>
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3">#</th>
-              <th className="p-3">Room</th>
-              <th className="p-3">Policy</th>
-              <th className="p-3">Rate</th>
-              <th className="p-3">Deal</th>
-              <th className="p-3">Deal Price</th>
-              {(isAdmin() || isManager()) && <th className="p-3">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rates.map((r, index) => (
-              <tr key={r.id} className="border-b">
-                <td className="p-3">{index + 1}</td>
-                <td className="p-3">
-                  {r.room
-                    ? `#${r.room.roomNumber} (${r.room.type})`
-                    : "Room not linked"}
-                </td>
-                <td className="p-3">{r.policy}</td>
-                <td className="p-3">${r.rate}</td>
-                <td className="p-3">
-                  {r.deal ? `${r.deal.name} (${r.deal.discount}%)` : "—"}
-                </td>
-                <td className="p-3">{r.dealPrice ? `$${r.dealPrice}` : "—"}</td>
-                {(isAdmin() || isManager()) && (
-                  <td className="p-3 space-x-2">
-                    <button
-                      onClick={() => handleEditClick(r)}
-                      className="px-2 py-1 bg-yellow-500 text-white rounded text-xs"
-                    >
-                      Update
-                    </button>
-                    <button
-                      onClick={() => handleDeleteRate(r.id)}
-                      className="px-2 py-1 bg-red-500 text-white rounded text-xs"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {rates.length === 0 && (
+
+      <div className="bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-slate-800">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-800 text-slate-200">
               <tr>
-                <td colSpan="7" className="text-center p-4 text-gray-500">
-                  No rates found.
-                </td>
+                <th className="p-4 font-semibold">#</th>
+                <th className="p-4 font-semibold">Room</th>
+                <th className="p-4 font-semibold">Policy</th>
+                <th className="p-4 font-semibold">Rate</th>
+                <th className="p-4 font-semibold">Deal</th>
+                <th className="p-4 font-semibold">Deal Price</th>
+                {(isAdmin() || isManager()) && <th className="p-4 font-semibold">Actions</th>}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {rates.map((r, index) => (
+                <tr key={r.id} className="hover:bg-slate-800/50 transition-colors">
+                  <td className="p-4 text-slate-400">{index + 1}</td>
+                  <td className="p-4">
+                    {r.room ? (
+                      <span className="font-medium text-slate-200">
+                        {r.room.type}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 italic">Room not linked</span>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      r.policy === 'FLEXIBLE' ? 'bg-green-500/10 text-green-400' :
+                      r.policy === 'STRICT' ? 'bg-orange-500/10 text-orange-400' :
+                      'bg-red-500/10 text-red-400'
+                    }`}>
+                      {r.policy}
+                    </span>
+                  </td>
+                  <td className="p-4 font-medium text-slate-200">${r.rate}</td>
+                  <td className="p-4">
+                    {r.deal ? (
+                      <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded text-sm">
+                        {r.deal.name} ({r.deal.discount}%)
+                      </span>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
+                  </td>
+                  <td className="p-4 font-medium text-green-400">
+                    {r.dealPrice ? `$${r.dealPrice}` : <span className="text-slate-600">—</span>}
+                  </td>
+                  {(isAdmin() || isManager()) && (
+                    <td className="p-4 space-x-2">
+                      <button
+                        onClick={() => handleEditClick(r)}
+                        className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg text-sm transition-colors border border-amber-500/20"
+                      >
+                        Update
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRate(r.id)}
+                        className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm transition-colors border border-red-500/20"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {rates.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="text-center p-8 text-slate-500">
+                    No rates found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white p-6 rounded shadow-lg w-96 space-y-4">
-            <h3 className="text-lg font-semibold">Add Rate</h3>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
+          <div className="bg-slate-900 p-8 rounded-xl shadow-2xl w-96 space-y-6 border border-slate-800">
+            <h3 className="text-xl font-semibold text-white">Add Rate</h3>
 
-            <select
-              value={form.roomId}
-              onChange={(e) => setForm({ ...form, roomId: e.target.value })}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">Select Room</option>
-              {rooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  #{room.roomNumber} ({room.type})
-                </option>
-              ))}
-            </select>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Room Type</label>
+                <select
+                  value={form.roomId}
+                  onChange={(e) => setForm({ ...form, roomId: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="">Select Room Type</option>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.type}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <select
-              value={form.policy}
-              onChange={(e) => setForm({ ...form, policy: e.target.value })}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">Select Policy</option>
-              <option value="FLEXIBLE">Flexible</option>
-              <option value="STRICT">Strict</option>
-              <option value="NON_REFUNDABLE">Non-Refundable</option>
-            </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Policy</label>
+                <select
+                  value={form.policy}
+                  onChange={(e) => setForm({ ...form, policy: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="">Select Policy</option>
+                  <option value="FLEXIBLE">Flexible</option>
+                  <option value="STRICT">Strict</option>
+                  <option value="NON_REFUNDABLE">Non-Refundable</option>
+                </select>
+              </div>
 
-            <input
-              type="number"
-              placeholder="Rate"
-              value={form.rate}
-              onChange={(e) => setForm({ ...form, rate: e.target.value })}
-              className="w-full border px-3 py-2 rounded"
-            />
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Rate ($)</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={form.rate}
+                  onChange={(e) => setForm({ ...form, rate: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                />
+              </div>
 
-            <select
-              value={form.dealId}
-              onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">No Deal</option>
-              {deals
-                .filter((deal) => {
-                  const selectedRoom = rooms.find(
-                    (r) => r.id === parseInt(form.roomId, 10)
-                  );
-                  return (
-                    deal.roomType === "ALL" ||
-                    (selectedRoom && deal.roomType === selectedRoom.type)
-                  );
-                })
-                .map((deal) => (
-                  <option key={deal.id} value={deal.id}>
-                    {deal.name} ({deal.discount}%)
-                  </option>
-                ))}
-            </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Deal (Optional)</label>
+                <select
+                  value={form.dealId}
+                  onChange={(e) => setForm({ ...form, dealId: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="">No Deal</option>
+                  {deals
+                    .filter((deal) => {
+                      const selectedRoom = rooms.find(
+                        (r) => r.id === parseInt(form.roomId, 10)
+                      );
+                      return (
+                        deal.roomType === "ALL" ||
+                        (selectedRoom && deal.roomType === selectedRoom.type)
+                      );
+                    })
+                    .map((deal) => (
+                      <option key={deal.id} value={deal.id}>
+                        {deal.name} ({deal.discount}%)
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={handleAddRate}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
-              >
-                Save
-              </button>
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="bg-gray-300 px-4 py-2 rounded"
+                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors border border-slate-700"
               >
                 Cancel
+              </button>
+              <button
+                onClick={handleAddRate}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-lg shadow-indigo-500/20 font-medium"
+              >
+                Save Rate
               </button>
             </div>
           </div>
@@ -280,84 +384,98 @@ function Rate() {
       )}
 
       {editModal && editForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white p-6 rounded shadow-lg w-96 space-y-4">
-            <h3 className="text-lg font-semibold">Edit Rate</h3>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
+          <div className="bg-slate-900 p-8 rounded-xl shadow-2xl w-96 space-y-6 border border-slate-800">
+            <h3 className="text-xl font-semibold text-white">Edit Rate</h3>
 
-            <select
-              value={editForm.roomId}
-              onChange={(e) =>
-                setEditForm({ ...editForm, roomId: e.target.value })
-              }
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">Select Room</option>
-              {rooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  #{room.roomNumber} ({room.type})
-                </option>
-              ))}
-            </select>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Room Type</label>
+                <select
+                  value={editForm.roomId}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, roomId: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="">Select Room Type</option>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.type}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <select
-              value={editForm.policy}
-              onChange={(e) =>
-                setEditForm({ ...editForm, policy: e.target.value })
-              }
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="FLEXIBLE">Flexible</option>
-              <option value="STRICT">Strict</option>
-              <option value="NON_REFUNDABLE">Non-Refundable</option>
-            </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Policy</label>
+                <select
+                  value={editForm.policy}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, policy: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="FLEXIBLE">Flexible</option>
+                  <option value="STRICT">Strict</option>
+                  <option value="NON_REFUNDABLE">Non-Refundable</option>
+                </select>
+              </div>
 
-            <input
-              type="number"
-              placeholder="Rate"
-              value={editForm.rate}
-              onChange={(e) =>
-                setEditForm({ ...editForm, rate: e.target.value })
-              }
-              className="w-full border px-3 py-2 rounded"
-            />
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Rate ($)</label>
+                <input
+                  type="number"
+                  placeholder="Rate"
+                  value={editForm.rate}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, rate: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                />
+              </div>
 
-            <select
-              value={editForm.dealId || ""}
-              onChange={(e) =>
-                setEditForm({ ...editForm, dealId: e.target.value })
-              }
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">No Deal</option>
-              {deals
-                .filter((deal) => {
-                  const selectedRoom = rooms.find(
-                    (r) => r.id === parseInt(editForm.roomId, 10)
-                  );
-                  return (
-                    deal.roomType === "ALL" ||
-                    (selectedRoom && deal.roomType === selectedRoom.type)
-                  );
-                })
-                .map((deal) => (
-                  <option key={deal.id} value={deal.id}>
-                    {deal.name} ({deal.discount}%)
-                  </option>
-                ))}
-            </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Deal (Optional)</label>
+                <select
+                  value={editForm.dealId || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, dealId: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="">No Deal</option>
+                  {deals
+                    .filter((deal) => {
+                      const selectedRoom = rooms.find(
+                        (r) => r.id === parseInt(editForm.roomId, 10)
+                      );
+                      return (
+                        deal.roomType === "ALL" ||
+                        (selectedRoom && deal.roomType === selectedRoom.type)
+                      );
+                    })
+                    .map((deal) => (
+                      <option key={deal.id} value={deal.id}>
+                        {deal.name} ({deal.discount}%)
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={handleSaveEdit}
-                className="bg-yellow-500 text-white px-4 py-2 rounded"
-              >
-                Update
-              </button>
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setEditModal(false)}
-                className="bg-gray-300 px-4 py-2 rounded"
+                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors border border-slate-700"
               >
                 Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-lg shadow-amber-500/20 font-medium"
+              >
+                Update Rate
               </button>
             </div>
           </div>

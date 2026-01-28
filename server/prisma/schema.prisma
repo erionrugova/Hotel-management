@@ -9,15 +9,17 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  username      String         @unique
-  password      String
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  bookings      Booking[]
-  refreshTokens RefreshToken[]
-  sessionLogs   SessionLog[]
+  id                    Int            @id @default(autoincrement())
+  username              String         @unique
+  password              String
+  email                 String?
+  role                  Role           @default(USER)
+  notificationPrefs     Json?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  bookings              Booking[]
+  refreshTokens         RefreshToken[]
+  sessionLogs           SessionLog[]
 
   @@map("users")
 }
@@ -47,7 +49,7 @@ model Room {
   id          Int         @id @default(autoincrement())
   roomNumber  String      @unique
   floor       String?
-  type        rooms_type
+  type        String      @db.VarChar(50) // Changed from enum to String to support dynamic room types
   price       Decimal     @db.Decimal(10, 2)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -80,6 +82,7 @@ model Booking {
   paymentStatus     PaymentStatus         @default(PENDING)
   baseRate          Decimal?              @db.Decimal(10, 2)
   finalPrice        Decimal?              @db.Decimal(10, 2)
+  refundAmount      Decimal?              @db.Decimal(10, 2)
   dealId            Int?
 
   guests Guest?
@@ -247,4 +250,17 @@ model SessionLog {
 
   @@index([userId])
   @@map("session_logs")
+}
+
+model HotelSettings {
+  id           Int      @id @default(autoincrement())
+  name         String   @default("Luxury Hotel & Spa")
+  address      String   @default("123 Ocean Drive, Miami Beach, FL")
+  contactEmail String   @default("contact@luxuryhotel.com")
+  phone        String   @default("+1 (555) 123-4567")
+  currency     String   @default("USD ($)")
+  timezone     String   @default("America/New_York")
+  updatedAt    DateTime @updatedAt
+
+  @@map("hotel_settings")
 }

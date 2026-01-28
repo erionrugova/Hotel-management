@@ -28,7 +28,8 @@ const Guests = lazy(() => import("./Pages/Dashboard/Guests"));
 const RoomsDashboard = lazy(() => import("./Pages/Dashboard/RoomsDashboard"));
 const Deals = lazy(() => import("./Pages/Dashboard/Deals"));
 const Rate = lazy(() => import("./Pages/Dashboard/Rate"));
-const Refunds = lazy(() => import("./Pages/Dashboard/Refunds"));
+const Invoices = lazy(() => import("./Pages/Dashboard/Refunds"));
+const Settings = lazy(() => import("./Pages/Dashboard/Settings"));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -89,7 +90,8 @@ function AppRoutes() {
           <Route path="rooms" element={<RoomsDashboard />} />
           <Route path="deals" element={<Deals />} />
           <Route path="rates" element={<Rate />} />
-          <Route path="refunds" element={<Refunds />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </Suspense>

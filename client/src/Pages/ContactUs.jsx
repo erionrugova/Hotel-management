@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FaPhoneAlt, FaEnvelope, FaLocationArrow } from "react-icons/fa";
 import apiService from "../services/api";
+import { useUser } from "../UserContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -13,6 +14,7 @@ const fadeUp = {
 };
 
 function ContactUs() {
+  const { isAdmin, isManager } = useUser();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -20,6 +22,29 @@ function ContactUs() {
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [hotelSettings, setHotelSettings] = useState({
+    address: "",
+    phone: "",
+    contactEmail: "",
+  });
+
+  useEffect(() => {
+    const fetchHotelSettings = async () => {
+      try {
+        const settings = await apiService.getHotelSettingsPublic();
+        if (settings) {
+          setHotelSettings({
+            address: settings.address || "",
+            phone: settings.phone || "",
+            contactEmail: settings.contactEmail || "",
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch hotel settings:", err);
+      }
+    };
+    fetchHotelSettings();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -184,26 +209,32 @@ function ContactUs() {
           >
             <p className="font-medium mb-2">Or reach us directly at:</p>
             <div className="flex flex-wrap justify-center gap-6 mt-4 text-[#B9965D] text-lg">
-              <a
-                href="tel:+1234567890"
-                className="flex items-center hover:text-[#a0854d] transition"
-              >
-                <FaPhoneAlt className="mr-2" /> +1 234 567 890
-              </a>
-              <a
-                href="mailto:support@example.com"
-                className="flex items-center hover:text-[#a0854d] transition"
-              >
-                <FaEnvelope className="mr-2" /> support@example.com
-              </a>
-              <a
-                href="https://www.google.com/maps"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center hover:text-[#a0854d] transition"
-              >
-                <FaLocationArrow className="mr-2" /> Find us on Google Maps
-              </a>
+              {hotelSettings.phone && (
+                <a
+                  href={`tel:${hotelSettings.phone}`}
+                  className="flex items-center hover:text-[#a0854d] transition"
+                >
+                  <FaPhoneAlt className="mr-2" /> {hotelSettings.phone || "+1 234 567 890"}
+                </a>
+              )}
+              {hotelSettings.contactEmail && (
+                <a
+                  href={`mailto:${hotelSettings.contactEmail}`}
+                  className="flex items-center hover:text-[#a0854d] transition"
+                >
+                  <FaEnvelope className="mr-2" /> {hotelSettings.contactEmail || "support@example.com"}
+                </a>
+              )}
+              {hotelSettings.address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotelSettings.address)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center hover:text-[#a0854d] transition"
+                >
+                  <FaLocationArrow className="mr-2" /> {hotelSettings.address || "Find us on Google Maps"}
+                </a>
+              )}
             </div>
           </motion.div>
         </motion.div>

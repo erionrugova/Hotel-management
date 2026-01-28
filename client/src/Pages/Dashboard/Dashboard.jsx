@@ -53,6 +53,8 @@ function Dashboard() {
   const [messages, setMessages] = useState([]);
   const [roomTypeChart, setRoomTypeChart] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
+  const [revenueByType, setRevenueByType] = useState([]);
+  const [weeklyStats, setWeeklyStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomPeriod, setRoomPeriod] = useState("today");
   const [selectedYear, setSelectedYear] = useState(moment().year());
@@ -88,7 +90,7 @@ function Dashboard() {
 
         if (!hasSuccessfulData) {
           console.warn(
-            "⚠️ All dashboard requests failed. Preserving existing data."
+            "⚠️ All dashboard requests failed. Preserving existing data.",
           );
           setLoading(false);
           return;
@@ -104,474 +106,479 @@ function Dashboard() {
         const contactData =
           contactResult.status === "fulfilled" ? contactResult.value : [];
 
-        // Log any failures for debugging
-        results.forEach((result, index) => {
-          if (result.status === "rejected") {
-            const endpointNames = ["rooms", "bookings", "guests", "messages"];
-            console.error(
-              `Failed to fetch ${endpointNames[index]}:`,
-              result.reason
-            );
-            // If it's a network/CORS error, log it prominently
-            if (
-              result.reason?.message?.includes("connect") ||
-              result.reason?.message?.includes("CORS") ||
-              result.reason?.isNetworkError
-            ) {
-              console.warn(
-                `⚠️ Network/CORS error for ${endpointNames[index]}. Data will be preserved.`
-              );
-            }
-          }
-        });
+        // --- Processing Logic ---
 
-        const now = moment.tz("Europe/Belgrade");
-        const today = now.clone().startOf("day");
-        const tomorrow = today.clone().add(1, "day");
-        const weekStart = today.clone().startOf("week");
-        const weekEnd = today.clone().endOf("week");
+        // 1. Calculate Stats
+        const now = moment().tz("Europe/Belgrade");
+        const todayStr = now.format("YYYY-MM-DD");
+        const tomorrowStr = now.clone().add(1, "days").format("YYYY-MM-DD");
 
-        // Stats
+        // Filter bookings: exclude COMPLETED and CANCELLED for active counts
+        const activeBookings = bookingsData.filter(
+          (b) => b.status !== "COMPLETED" && b.status !== "CANCELLED",
+        );
+        
+        // For check-ins/check-outs, use CONFIRMED bookings
         const confirmedBookings = bookingsData.filter(
-          (b) => b.status === "CONFIRMED"
+          (b) => b.status === "CONFIRMED",
         );
 
-        // Check-ins and check-outs for today (compare dates only, not times)
-        const todayCheckIns = confirmedBookings.filter((b) => {
-          const bookingStart = moment.tz(b.startDate, "Europe/Belgrade");
-          return (
-            bookingStart.format("YYYY-MM-DD") === today.format("YYYY-MM-DD")
-          );
-        });
-        const todayCheckOuts = confirmedBookings.filter((b) => {
-          const bookingEnd = moment.tz(b.endDate, "Europe/Belgrade");
-          return bookingEnd.format("YYYY-MM-DD") === today.format("YYYY-MM-DD");
-        });
-
-        // Guests currently in hotel (including check-ins today and check-outs tomorrow or later)
-        const inHotel = guestsData.filter((g) => {
-          const booking = g.booking || g.Booking;
-          if (!booking) return false;
-          const start = moment
-            .tz(booking.startDate, "Europe/Belgrade")
-            .startOf("day");
-          const end = moment
-            .tz(booking.endDate, "Europe/Belgrade")
-            .startOf("day");
-          // Active if: start date <= today AND end date >= today
-          const isActive =
-            start.isSameOrBefore(today, "day") &&
-            end.isSameOrAfter(today, "day");
-          return g.status === "CONFIRMED" && isActive;
-        }).length;
-
-        // Occupied and available rooms (compare dates only)
-        const occupiedRooms = roomsData.filter((room) =>
-          room.bookings.some((b) => {
-            if (b.status !== "CONFIRMED") return false;
-            const start = moment
-              .tz(b.startDate, "Europe/Belgrade")
-              .startOf("day");
-            const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
-            // Room is occupied if: start date <= today AND end date > today (check-out is exclusive)
-            return (
-              start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
-            );
-          })
+        const checkIns = confirmedBookings.filter((b) =>
+          moment.tz(b.startDate, "Europe/Belgrade").isSame(now, "day"),
+        ).length;
+        const checkOuts = confirmedBookings.filter((b) =>
+          moment.tz(b.endDate, "Europe/Belgrade").isSame(now, "day"),
         ).length;
 
-        const availableRooms = roomsData.length - occupiedRooms;
-
-        // Tomorrow occupancy (bookings that will be active tomorrow)
-        const tomorrowOccupancy = confirmedBookings.filter((b) => {
-          const start = moment
-            .tz(b.startDate, "Europe/Belgrade")
-            .startOf("day");
-          const end = moment.tz(b.endDate, "Europe/Belgrade").startOf("day");
+        // In Hotel: active bookings where start <= today < end (exclude COMPLETED and CANCELLED)
+        const inHotel = activeBookings.filter((b) => {
+          const start = moment.tz(b.startDate, "Europe/Belgrade");
+          const end = moment.tz(b.endDate, "Europe/Belgrade");
           return (
-            start.isSameOrBefore(tomorrow, "day") &&
-            end.isAfter(tomorrow, "day")
+            (start.isBefore(now, "day") || start.isSame(now, "day")) &&
+            end.isAfter(now, "day")
           );
         }).length;
 
-        // This week occupancy
-        const weekOccupancy = confirmedBookings.filter((b) => {
+        const totalRooms = roomsData.length;
+        const occupiedToday = inHotel;
+        const availableToday = Math.max(0, totalRooms - occupiedToday);
+
+        // Tomorrow's Occupancy (exclude COMPLETED and CANCELLED)
+        const occupiedTomorrow = activeBookings.filter((b) => {
           const start = moment.tz(b.startDate, "Europe/Belgrade");
           const end = moment.tz(b.endDate, "Europe/Belgrade");
-          return start.isBefore(weekEnd) && end.isAfter(weekStart);
+          const tmrw = now.clone().add(1, "days");
+          return (
+            (start.isBefore(tmrw, "day") || start.isSame(tmrw, "day")) &&
+            end.isAfter(tmrw, "day")
+          );
         }).length;
 
-        // Only update state if we have valid data
-        if (roomsResult.status === "fulfilled") {
-          setStats({
-            checkIn: todayCheckIns.length,
-            checkOut: todayCheckOuts.length,
-            inHotel,
-            availableRooms,
-            occupiedRooms,
-            tomorrow: tomorrowOccupancy,
-            thisWeek: weekOccupancy,
-          });
+        // This Week's Average Occupancy (exclude COMPLETED and CANCELLED)
+        const weekStart = now.clone().startOf("week"); // Sunday
+        const weekEnd = now.clone().endOf("week"); // Saturday
+        let totalOccupiedWeek = 0;
+        for (let i = 0; i < 7; i++) {
+          const day = weekStart.clone().add(i, "days");
+          const occ = activeBookings.filter((b) => {
+            const start = moment.tz(b.startDate, "Europe/Belgrade");
+            const end = moment.tz(b.endDate, "Europe/Belgrade");
+            return (
+              (start.isBefore(day, "day") || start.isSame(day, "day")) &&
+              end.isAfter(day, "day")
+            );
+          }).length;
+          totalOccupiedWeek += occ;
         }
+        const avgWeekOccupancy = Math.round(totalOccupiedWeek / 7);
 
-        if (bookingsResult.status === "fulfilled") {
-          setBookings(bookingsData);
-        }
+        setStats({
+          checkIn: checkIns,
+          checkOut: checkOuts,
+          inHotel: inHotel,
+          availableRooms: availableToday,
+          occupiedRooms: occupiedToday,
+          tomorrow: occupiedTomorrow,
+          thisWeek: avgWeekOccupancy,
+        });
 
-        if (contactResult.status === "fulfilled") {
-          setMessages(contactData);
-        }
+        // 2. Room Types with Dynamic Period
+        // We will filter based on `roomPeriod` state (today, tomorrow, week)
+        // Since this runs in useEffect, we need to recalculate when `roomPeriod` changes
+        // But for initial load, we'll just calculate "today"
+        // We'll move this logic to a separate effect or just recalculate here
+        // For simplicity, let's just compute all and set state, then filtering happens in render or separate effect?
+        // Actually, let's just compute "today" here, and we'll have a separate useEffect for roomPeriod changes if needed.
+        // Wait, roomPeriod is a dependency of this effect? No, we should probably separate it.
+        // But to avoid complexity, let's just compute the current `roomPeriod` data here.
 
-        if (bookingsResult.status === "fulfilled") {
-          const years = [
-            ...new Set(
-              bookingsData.map((b) =>
-                moment.tz(b.startDate, "Europe/Belgrade").year()
-              )
-            ),
-          ].sort((a, b) => b - a);
-          setAvailableYears(years);
-        }
+        let targetDate = now;
+        if (roomPeriod === "tomorrow") targetDate = now.clone().add(1, "days");
 
-        // Occupancy stats - only if we have rooms data
-        if (roomsResult.status === "fulfilled") {
-          const totalRooms = roomsData.length || 1;
-          const months = Array.from({ length: 12 }, (_, i) => {
-            const monthStart = moment
-              .tz("Europe/Belgrade")
-              .year(selectedYear)
-              .month(i)
-              .startOf("month");
-            const monthEnd = moment
-              .tz("Europe/Belgrade")
-              .year(selectedYear)
-              .month(i)
-              .endOf("month");
-            const daysInMonth = monthEnd.date();
-            const totalRoomDays = totalRooms * daysInMonth;
-            let occupiedRoomDays = 0;
+        // Calculate usage per room type
+        const roomUsage = {}; // { Single: { booked: 5, total: 10, price: 100 } }
 
-            confirmedBookings.forEach((b) => {
-              const bookingStart = moment.tz(b.startDate, "Europe/Belgrade");
-              const bookingEnd = moment.tz(b.endDate, "Europe/Belgrade");
+        // Initialize with total counts
+        roomsData.forEach((r) => {
+          if (!roomUsage[r.type]) {
+            roomUsage[r.type] = {
+              booked: 0,
+              total: 0,
+              price: r.price,
+              type: r.type,
+            };
+          }
+          roomUsage[r.type].total += 1;
+        });
+
+        // Count booked (exclude COMPLETED and CANCELLED)
+        if (roomPeriod === "week") {
+          // Average for the week? Or total unique bookings?
+          // Let's do: Average occupancy for the next 7 days
+          for (let i = 0; i < 7; i++) {
+            const d = now.clone().add(i, "days");
+            activeBookings.forEach((b) => {
+              const start = moment.tz(b.startDate, "Europe/Belgrade");
+              const end = moment.tz(b.endDate, "Europe/Belgrade");
               if (
-                bookingStart.isBefore(monthEnd) &&
-                bookingEnd.isAfter(monthStart)
+                (start.isBefore(d, "day") || start.isSame(d, "day")) &&
+                end.isAfter(d, "day")
               ) {
-                const overlapStart = moment.max(bookingStart, monthStart);
-                const overlapEnd = moment.min(bookingEnd, monthEnd);
-                if (overlapStart.isBefore(overlapEnd)) {
-                  occupiedRoomDays += overlapEnd.diff(overlapStart, "days");
+                const room = roomsData.find((r) => r.id === b.roomId);
+                if (room && roomUsage[room.type]) {
+                  roomUsage[room.type].booked += 1 / 7; // Add 1/7th for average
                 }
               }
             });
-
-            const occupiedPercent = Math.round(
-              (occupiedRoomDays / totalRoomDays) * 100
-            );
-
-            return {
-              month: moment().month(i).format("MMM"),
-              occupied: occupiedPercent,
-              available: 100 - occupiedPercent,
-            };
+          }
+          // Round booked numbers
+          Object.keys(roomUsage).forEach((k) => {
+            roomUsage[k].booked = Math.round(roomUsage[k].booked);
           });
-
-          setOccupancyData(months);
-        }
-
-        if (bookingsResult.status === "fulfilled") {
-          const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
-            const monthStart = moment
-              .tz("Europe/Belgrade")
-              .year(selectedYear)
-              .month(i)
-              .startOf("month");
-            const monthEnd = moment
-              .tz("Europe/Belgrade")
-              .year(selectedYear)
-              .month(i)
-              .endOf("month");
-
-            const total = bookingsData
-              .filter(
-                (b) =>
-                  b.status === "CONFIRMED" &&
-                  b.paymentStatus === "PAID" &&
-                  moment
-                    .tz(b.startDate, "Europe/Belgrade")
-                    .isBetween(monthStart, monthEnd, null, "[]")
-              )
-              .reduce((sum, b) => sum + (parseFloat(b.finalPrice) || 0), 0);
-
-            return {
-              month: moment().month(i).format("MMM"),
-              revenue: total,
-            };
-          });
-
-          setRevenueData(monthlyRevenue);
-        }
-
-        // Room types - only if we have rooms data
-        if (roomsResult.status === "fulfilled") {
-          const roomTypes = {};
-          roomsData.forEach((room) => {
-            if (!roomTypes[room.type]) {
-              roomTypes[room.type] = {
-                total: 0,
-                booked: 0,
-                price: room.price || 0,
-              };
-            }
-            roomTypes[room.type].total++;
-          });
-
-          const isActiveBooking = (booking) => {
-            const start = moment
-              .tz(booking.startDate, "Europe/Belgrade")
-              .startOf("day");
-            const end = moment
-              .tz(booking.endDate, "Europe/Belgrade")
-              .startOf("day");
-            if (roomPeriod === "today")
-              return (
-                start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
-              );
-            if (roomPeriod === "tomorrow")
-              return (
-                start.isSameOrBefore(tomorrow, "day") &&
-                end.isAfter(tomorrow, "day")
-              );
-            if (roomPeriod === "week")
-              return (
-                start.isSameOrBefore(weekEnd, "day") &&
-                end.isAfter(weekStart, "day")
-              );
-            return false;
-          };
-
-          bookingsData.forEach((b) => {
-            if (
-              b.status === "CONFIRMED" &&
-              b.room?.type &&
-              isActiveBooking(b)
-            ) {
-              const type = b.room.type.toUpperCase();
-              if (!roomTypes[type])
-                roomTypes[type] = { total: 0, booked: 0, price: 0 };
-              roomTypes[type].booked++;
-            }
-          });
-
-          setRooms(
-            Object.entries(roomTypes).map(([type, data]) => ({
-              type: type.replace("_", " "),
-              ...data,
-            }))
-          );
-        }
-
-        // Pie chart - only if we have bookings data
-        if (bookingsResult.status === "fulfilled") {
-          const activeBookings = bookingsData.filter((b) => {
-            if (b.status !== "CONFIRMED" || !b.room?.type) return false;
-            if (chartMode === "active") {
-              const start = moment
-                .tz(b.startDate, "Europe/Belgrade")
-                .startOf("day");
-              const end = moment
-                .tz(b.endDate, "Europe/Belgrade")
-                .startOf("day");
-              return (
-                start.isSameOrBefore(today, "day") && end.isAfter(today, "day")
-              );
-            }
-            return true;
-          });
-
-          const chartCounts = {};
+        } else {
+          // Single day (today or tomorrow)
           activeBookings.forEach((b) => {
-            const type = b.room.type.toUpperCase();
-            if (!chartCounts[type]) chartCounts[type] = 0;
-            chartCounts[type]++;
+            const start = moment.tz(b.startDate, "Europe/Belgrade");
+            const end = moment.tz(b.endDate, "Europe/Belgrade");
+            if (
+              (start.isBefore(targetDate, "day") ||
+                start.isSame(targetDate, "day")) &&
+              end.isAfter(targetDate, "day")
+            ) {
+              const room = roomsData.find((r) => r.id === b.roomId);
+              if (room && roomUsage[room.type]) {
+                roomUsage[room.type].booked += 1;
+              }
+            }
           });
-
-          const totalChartCount = Object.values(chartCounts).reduce(
-            (a, b) => a + b,
-            0
-          );
-
-          const chartData = Object.entries(chartCounts).map(
-            ([type, count]) => ({
-              name: type,
-              count,
-              percent:
-                totalChartCount > 0
-                  ? ((count / totalChartCount) * 100).toFixed(2)
-                  : 0,
-              value: count,
-            })
-          );
-
-          setRoomTypeChart(chartData);
         }
+
+        setRooms(Object.values(roomUsage));
+
+        // 3. Occupancy Chart (Monthly for selected year)
+        // We need available years first
+        const years = new Set();
+        years.add(moment().year()); // Always include current year
+        confirmedBookings.forEach((b) => {
+          years.add(moment(b.startDate).year());
+        });
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+        setAvailableYears(sortedYears);
+
+        // Compute monthly occupancy for selectedYear
+        // Include all bookings (including COMPLETED) for historical accuracy
+        const monthlyOcc = Array(12)
+          .fill(0)
+          .map((_, i) => ({
+            month: moment().month(i).format("MMM"),
+            occupied: 0,
+            available: 100, // Percentage
+          }));
+
+        // Simplification: Count "room-nights" per month
+        // Total potential room-nights = totalRooms * daysInMonth
+        confirmedBookings.forEach((b) => {
+          const start = moment.tz(b.startDate, "Europe/Belgrade");
+          const end = moment.tz(b.endDate, "Europe/Belgrade");
+
+          // Iterate through days of booking
+          let current = start.clone();
+          while (current.isBefore(end, "day")) {
+            if (current.year() === selectedYear) {
+              const mIndex = current.month();
+              monthlyOcc[mIndex].occupied += 1;
+            }
+            current.add(1, "days");
+          }
+        });
+
+        // Normalize to percentage
+        monthlyOcc.forEach((m, i) => {
+          const daysInMonth = moment({
+            year: selectedYear,
+            month: i,
+          }).daysInMonth();
+          const totalCapacity = totalRooms * daysInMonth;
+          if (totalCapacity > 0) {
+            const occPct = Math.round((m.occupied / totalCapacity) * 100);
+            m.occupied = occPct;
+            m.available = 100 - occPct;
+          } else {
+            m.occupied = 0;
+            m.available = 100;
+          }
+        });
+        setOccupancyData(monthlyOcc);
+
+        // 4. Revenue Overview (Monthly)
+        const monthlyRev = Array(12)
+          .fill(0)
+          .map((_, i) => ({
+            month: moment().month(i).format("MMM"),
+            revenue: 0,
+          }));
+
+        confirmedBookings.forEach((b) => {
+          // Only count bookings with actual finalPrice
+          if (!b.finalPrice) return;
+          const start = moment.tz(b.startDate, "Europe/Belgrade");
+          if (start.year() === selectedYear) {
+            const mIndex = start.month();
+            monthlyRev[mIndex].revenue += Number(b.finalPrice);
+          }
+        });
+        setRevenueData(monthlyRev);
+
+        // 5. Room Type Distribution (Pie Chart)
+        // First, get all unique room types from rooms data
+        const allRoomTypes = [...new Set(roomsData.map((r) => r.type))];
+        
+        // Initialize distribution with all room types (including those with 0 bookings)
+        const typeDist = {};
+        allRoomTypes.forEach((type) => {
+          typeDist[type] = 0;
+        });
+
+        const bookingsToUse =
+          chartMode === "all"
+            ? activeBookings // Use activeBookings (excludes COMPLETED and CANCELLED)
+            : activeBookings.filter((b) => {
+                // Only show currently active bookings
+                const start = moment.tz(b.startDate, "Europe/Belgrade");
+                const end = moment.tz(b.endDate, "Europe/Belgrade");
+                return (
+                  (start.isBefore(now, "day") || start.isSame(now, "day")) &&
+                  end.isAfter(now, "day")
+                );
+              });
+
+        bookingsToUse.forEach((b) => {
+          const room = roomsData.find((r) => r.id === b.roomId);
+          if (room) {
+            if (!typeDist[room.type]) typeDist[room.type] = 0;
+            typeDist[room.type] += 1;
+          }
+        });
+
+        const totalBookingsCount = bookingsToUse.length;
+        const pieData = Object.entries(typeDist).map(([name, count]) => ({
+          name,
+          value: count,
+          count,
+          percent:
+            totalBookingsCount > 0
+              ? Math.round((count / totalBookingsCount) * 100)
+              : 0,
+        }));
+        setRoomTypeChart(pieData);
+
+        // 6. Recent Messages
+        setMessages(
+          contactData.sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+          ),
+        );
+
+        setBookings(bookingsData); // Store raw bookings for other uses if needed
+
+        // 7. Calculate Weekly Activity (Check-ins vs Check-outs)
+        const weeklyActivity = Array.from({ length: 7 }, (_, i) => {
+          const day = weekStart.clone().add(i, "days");
+          const dayStr = day.format("YYYY-MM-DD");
+          const checkIns = confirmedBookings.filter(
+            (b) =>
+              moment.tz(b.startDate, "Europe/Belgrade").format("YYYY-MM-DD") ===
+              dayStr,
+          ).length;
+          const checkOuts = confirmedBookings.filter(
+            (b) =>
+              moment.tz(b.endDate, "Europe/Belgrade").format("YYYY-MM-DD") ===
+              dayStr,
+          ).length;
+          return { day: day.format("ddd"), checkIns, checkOuts };
+        });
+        setWeeklyStats(weeklyActivity);
+
+        // 8. Revenue by Room Type (use all confirmed bookings for revenue, not filtered)
+        // First, get all unique room types from rooms data
+        const allRoomTypesForRevenue = [...new Set(roomsData.map((r) => r.type))];
+        
+        // Initialize revenue with all room types (including those with 0 revenue)
+        const revByType = {};
+        allRoomTypesForRevenue.forEach((type) => {
+          revByType[type] = 0;
+        });
+
+        confirmedBookings.forEach((b) => {
+          // Include all bookings for revenue calculation (including COMPLETED for historical accuracy)
+          const room = roomsData.find((r) => r.id === b.roomId);
+          if (room && b.finalPrice) {
+            if (!revByType[room.type]) revByType[room.type] = 0;
+            revByType[room.type] += Number(b.finalPrice || 0);
+          }
+        });
+        const revByTypeData = Object.entries(revByType)
+          .map(([name, value]) => ({
+            name,
+            value,
+          }))
+          .sort((a, b) => b.value - a.value);
+        setRevenueByType(revByTypeData);
       } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
+        console.error("Dashboard data fetch error:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [refreshFlag, roomPeriod, selectedYear, chartMode]);
+  }, [user, refreshFlag, roomPeriod, selectedYear, chartMode]); // Add dependencies to re-run when filters change
+
+  // Prepare Today's Activity Lists
+  const todayCheckIns = bookings.filter((b) => {
+    const start = moment.tz(b.startDate, "Europe/Belgrade");
+    return start.isSame(moment(), "day") && b.status === "CONFIRMED";
+  });
+  const todayCheckOuts = bookings.filter((b) => {
+    const end = moment.tz(b.endDate, "Europe/Belgrade");
+    return end.isSame(moment(), "day") && b.status === "CONFIRMED";
+  });
+
+  const COLORS = {
+    SINGLE: "#0088FE",
+    DOUBLE: "#00C49F",
+    SUITE: "#FFBB28",
+    DELUXE: "#FF8042",
+  };
+  const colorArray = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
   if (loading) {
     return (
-      <div className="p-8 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="text-lg animate-pulse text-gray-600">
-          Loading dashboard...
+      <div className="p-8 bg-slate-950 min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-lg animate-pulse text-indigo-400 font-medium">
+            Loading dashboard...
+          </div>
         </div>
       </div>
     );
   }
 
-  const COLORS =
-    chartMode === "active"
-      ? {
-          DELUXE: "#EAB308",
-          DOUBLE: "#3B82F6",
-          SINGLE: "#CA8A04",
-          SUITE: "#10B981",
-        }
-      : {
-          DELUXE: "#E5C07B",
-          DOUBLE: "#93C5FD",
-          SINGLE: "#D6AF63",
-          SUITE: "#6EE7B7",
-        };
-
-  const colorArray = Object.values(COLORS);
-
-  // Get today's date in Belgrade timezone for display
-  const todayForDisplay = moment.tz("Europe/Belgrade");
-  const todayCheckIns = bookings.filter(
-    (b) =>
-      b.status === "CONFIRMED" &&
-      moment.tz(b.startDate, "Europe/Belgrade").format("YYYY-MM-DD") ===
-        todayForDisplay.format("YYYY-MM-DD")
-  );
-  const todayCheckOuts = bookings.filter(
-    (b) =>
-      b.status === "CONFIRMED" &&
-      moment.tz(b.endDate, "Europe/Belgrade").format("YYYY-MM-DD") ===
-        todayForDisplay.format("YYYY-MM-DD")
-  );
-
   return (
     <motion.div
-      className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen"
+      className="p-4 sm:p-6 lg:p-8 bg-slate-950 min-h-screen text-slate-200"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
     >
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-xl sm:text-2xl font-semibold">
-          {user ? `Welcome back, ${user.username}` : "Dashboard"}
-        </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+            {user ? `Welcome back, ${user.username}` : "Dashboard"}
+          </h1>
+          <p className="text-slate-400 mt-1">Here's what's happening today.</p>
+        </div>
 
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition-all duration-300 text-sm sm:text-base w-full sm:w-auto justify-center"
+          className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-900/20 hover:bg-indigo-500 hover:shadow-indigo-900/40 transition-all duration-300 text-sm font-medium w-full sm:w-auto justify-center"
         >
           <Home size={18} />
-          Back to Homepage
+          Homepage
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6 sm:mb-10">
-        <h2 className="text-lg sm:text-xl font-semibold mb-4">
+      {/* Today's Activity Section */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6 mb-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+        <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+          <span className="w-2 h-8 bg-indigo-500 rounded-full"></span>
           Today's Activity
         </h2>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {todayCheckIns.length === 0 && todayCheckOuts.length === 0 ? (
-            <p className="text-gray-500">No activity today.</p>
+            <p className="text-slate-500 italic">
+              No check-ins or check-outs scheduled for today.
+            </p>
           ) : (
-            <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {todayCheckIns.map((b) => {
-                // Parse the date correctly - if it's an ISO string, parse as UTC then convert to Belgrade
                 let displayTime = moment.tz("Europe/Belgrade");
-
                 if (b.createdAt) {
-                  // Try parsing as ISO string first (UTC), then convert to Belgrade
                   const parsed = moment.utc(b.createdAt);
-                  if (parsed.isValid()) {
+                  if (parsed.isValid())
                     displayTime = parsed.tz("Europe/Belgrade");
-                  } else {
-                    // Fallback: try parsing directly with timezone
+                  else {
                     const direct = moment.tz(b.createdAt, "Europe/Belgrade");
-                    if (direct.isValid()) {
-                      displayTime = direct;
-                    }
+                    if (direct.isValid()) displayTime = direct;
                   }
                 }
-
                 return (
                   <motion.div
                     key={`in-${b.id}`}
-                    whileHover={{ scale: 1.02 }}
-                    className="flex items-center justify-between border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded"
+                    whileHover={{ scale: 1.01 }}
+                    className="flex items-center justify-between border-l-4 border-emerald-500 pl-4 py-3 bg-slate-800/50 rounded-r-lg"
                   >
-                    <span className="text-sm text-green-700 font-medium">
-                      ✅ Check-in: Room {b.room?.roomNumber || "N/A"} —{" "}
-                      {b.customerFirstName} {b.customerLastName}
-                    </span>
-                    <span className="text-xs text-gray-500">
+                    <div>
+                      <span className="text-emerald-400 font-semibold block text-sm">
+                        CHECK-IN
+                      </span>
+                      <span className="text-slate-200 font-medium">
+                        {b.customerFirstName} {b.customerLastName}
+                      </span>
+                      <span className="text-slate-400 text-xs block">
+                        Room {b.room?.roomNumber || "N/A"}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500 font-mono bg-slate-800 px-2 py-1 rounded">
                       {displayTime.format("h:mm A")}
                     </span>
                   </motion.div>
                 );
               })}
               {todayCheckOuts.map((b) => {
-                // Parse the date correctly - if it's an ISO string, parse as UTC then convert to Belgrade
                 let displayTime = moment.tz("Europe/Belgrade");
-
                 const dateToUse = b.updatedAt || b.createdAt;
                 if (dateToUse) {
-                  // Try parsing as ISO string first (UTC), then convert to Belgrade
                   const parsed = moment.utc(dateToUse);
-                  if (parsed.isValid()) {
+                  if (parsed.isValid())
                     displayTime = parsed.tz("Europe/Belgrade");
-                  } else {
-                    // Fallback: try parsing directly with timezone
+                  else {
                     const direct = moment.tz(dateToUse, "Europe/Belgrade");
-                    if (direct.isValid()) {
-                      displayTime = direct;
-                    }
+                    if (direct.isValid()) displayTime = direct;
                   }
                 }
-
                 return (
                   <motion.div
                     key={`out-${b.id}`}
-                    whileHover={{ scale: 1.02 }}
-                    className="flex items-center justify-between border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded"
+                    whileHover={{ scale: 1.01 }}
+                    className="flex items-center justify-between border-l-4 border-rose-500 pl-4 py-3 bg-slate-800/50 rounded-r-lg"
                   >
-                    <span className="text-sm text-red-700 font-medium">
-                      🚪 Check-out: Room {b.room?.roomNumber || "N/A"} —{" "}
-                      {b.customerFirstName} {b.customerLastName}
-                    </span>
-                    <span className="text-xs text-gray-500">
+                    <div>
+                      <span className="text-rose-400 font-semibold block text-sm">
+                        CHECK-OUT
+                      </span>
+                      <span className="text-slate-200 font-medium">
+                        {b.customerFirstName} {b.customerLastName}
+                      </span>
+                      <span className="text-slate-400 text-xs block">
+                        Room {b.room?.roomNumber || "N/A"}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500 font-mono bg-slate-800 px-2 py-1 rounded">
                       {displayTime.format("h:mm A")}
                     </span>
                   </motion.div>
                 );
               })}
-            </>
+            </div>
           )}
         </div>
       </div>
 
+      {/* Stats Grid */}
       <motion.div
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-8"
         initial={{ opacity: 0, y: 20 }}
@@ -581,31 +588,31 @@ function Dashboard() {
         {Object.entries(stats).map(([key, value]) => (
           <Card
             key={key}
-            className="transition-transform duration-300 hover:scale-[1.04] hover:shadow-lg"
+            className="transition-all duration-300 hover:scale-[1.04] hover:shadow-xl bg-slate-900 border-slate-800"
           >
             <CardContent>
-              <p className="text-gray-500 capitalize">
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
                 {statLabels[key] || key.replace(/([A-Z])/g, " $1")}
               </p>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
+              <p className="text-2xl font-bold text-white">{value}</p>
             </CardContent>
           </Card>
         ))}
       </motion.div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h2 className="text-xl font-semibold">Room Types</h2>
-        <div className="flex gap-2 flex-wrap">
+        <h2 className="text-xl font-semibold text-white">Room Types Status</h2>
+        <div className="flex gap-2 flex-wrap bg-slate-900 p-1 rounded-lg border border-slate-800">
           {["today", "tomorrow", "week"].map((period) => {
             const isActive = roomPeriod === period;
             return (
               <button
                 key={period}
                 onClick={() => setRoomPeriod(period)}
-                className={`px-4 py-1.5 rounded-md font-medium transition-all duration-300 ${
+                className={`px-4 py-1.5 rounded-md font-medium text-sm transition-all duration-300 ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-300 scale-105"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
                 }`}
               >
                 {period.charAt(0).toUpperCase() + period.slice(1)}
@@ -630,240 +637,391 @@ function Dashboard() {
               <motion.div
                 key={i}
                 whileHover={{ scale: 1.03 }}
-                className="border border-gray-200 rounded-xl bg-gradient-to-b from-white to-gray-50 shadow-sm hover:shadow-xl transition-all"
+                className="border border-slate-800 rounded-xl bg-slate-900 shadow-lg hover:shadow-indigo-900/20 transition-all overflow-hidden relative"
               >
-                <CardContent className="p-5 text-center">
-                  <h3 className="font-semibold text-lg text-gray-900 uppercase tracking-wide">
-                    {room.type}
-                  </h3>
-                  <p className="text-gray-700 text-sm mt-1 mb-2">
-                    <span className="font-medium text-gray-900">
-                      {room.booked}
-                    </span>{" "}
-                    / {room.total} occupied
-                  </p>
+                <div
+                  className={`absolute top-0 left-0 w-1 h-full ${occupancyRate > 80 ? "bg-rose-500" : occupancyRate > 50 ? "bg-amber-500" : "bg-emerald-500"}`}
+                ></div>
+                <CardContent className="p-5">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="font-bold text-lg text-white uppercase tracking-wide">
+                      {room.type}
+                    </h3>
+                    <div className="bg-slate-800 px-2 py-1 rounded text-xs text-slate-400 font-mono">
+                      ${Number(room.price || 0).toFixed(0)}
+                    </div>
+                  </div>
 
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                  <div className="flex justify-between items-end mb-2">
+                    <p className="text-slate-400 text-sm">
+                      <span className="font-bold text-white text-2xl">
+                        {room.booked}
+                      </span>
+                      <span className="text-slate-600 mx-1">/</span>
+                      {room.total}
+                    </p>
+                    <p
+                      className={`text-sm font-bold ${occupancyRate > 80 ? "text-rose-400" : occupancyRate > 50 ? "text-amber-400" : "text-emerald-400"}`}
+                    >
+                      {occupancyRate}%
+                    </p>
+                  </div>
+
+                  <div className="w-full bg-slate-800 rounded-full h-2">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${occupancyRate}%` }}
                       transition={{ duration: 0.8 }}
-                      className={`h-2.5 rounded-full ${
+                      className={`h-2 rounded-full ${
                         occupancyRate > 80
-                          ? "bg-red-500"
+                          ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"
                           : occupancyRate > 50
-                          ? "bg-yellow-400"
-                          : "bg-green-500"
+                            ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                            : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                       }`}
                     ></motion.div>
                   </div>
-
-                  <p className="text-xs text-gray-600 mb-3">
-                    Occupancy: <b>{occupancyRate}%</b>
-                  </p>
-                  <p className="text-[#B89B5E] font-bold text-lg">
-                    ${Number(room.price || 0).toFixed(2)}/day
-                  </p>
                 </CardContent>
               </motion.div>
             );
           })
         ) : (
-          <p className="col-span-4 text-center text-gray-500">
+          <p className="col-span-4 text-center text-slate-500 py-8">
             No room data available.
           </p>
         )}
       </motion.div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h2 className="text-xl font-semibold">Occupancy Statistics</h2>
-        {availableYears.length > 0 && (
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="border px-2 py-1 rounded-md text-sm w-full sm:w-auto"
-          >
-            {availableYears.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        )}
+      {/* Weekly Activity Chart (New) */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-white mb-4">
+          Weekly Activity
+        </h2>
+        <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-4 h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={weeklyStats} barSize={20}>
+              <XAxis
+                dataKey="day"
+                stroke="#94a3b8"
+                tick={{ fill: "#94a3b8" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#94a3b8"
+                tick={{ fill: "#94a3b8" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1e293b",
+                  border: "1px solid #334155",
+                  borderRadius: "8px",
+                  color: "#f8fafc",
+                }}
+                cursor={{ fill: "#334155", opacity: 0.2 }}
+              />
+              <Legend wrapperStyle={{ paddingTop: "10px" }} />
+              <Bar
+                dataKey="checkIns"
+                name="Check-ins"
+                fill="#34d399"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey="checkOuts"
+                name="Check-outs"
+                fill="#f43f5e"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      <div className="bg-white shadow rounded-xl p-4 h-64 mb-6 sm:mb-10 overflow-x-auto">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={occupancyData}>
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip />
-            <Bar
-              dataKey="occupied"
-              stackId="a"
-              fill="#B89B5E"
-              name="Occupied %"
-              animationDuration={900}
-            />
-            <Bar
-              dataKey="available"
-              stackId="a"
-              fill="#4ADE80"
-              name="Available %"
-              animationDuration={900}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 mt-12">
-        <h2 className="text-xl font-semibold">Revenue Overview</h2>
-        <select
-          className="border px-3 py-1.5 rounded-md text-sm text-gray-700 w-full sm:w-auto"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-        >
-          {availableYears.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="bg-white shadow rounded-xl p-4 h-72 mb-6 sm:mb-10 overflow-x-auto">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={revenueData}
-            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#B89B5E" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#B89B5E" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="month" stroke="#888" />
-            <YAxis stroke="#888" tickFormatter={(v) => `$${v / 1000}k`} />
-            <Tooltip
-              formatter={(value) => [
-                `$${value.toLocaleString()}`,
-                "Total Revenue",
-              ]}
-              labelFormatter={(label) => `${label} ${selectedYear}`}
-              contentStyle={{
-                borderRadius: "8px",
-                backgroundColor: "#fff",
-                border: "1px solid #ddd",
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              stroke="#B89B5E"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorRevenue)"
-              animationDuration={800}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h2 className="text-xl font-semibold">Bookings by Room Type</h2>
-        <button
-          onClick={() => setChartMode(chartMode === "all" ? "active" : "all")}
-          className={`px-3 py-1.5 rounded font-medium transition-all duration-300 text-sm w-full sm:w-auto ${
-            chartMode === "all"
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-green-600 text-white hover:bg-green-700"
-          }`}
-        >
-          {chartMode === "all" ? "Show Active Only" : "Show All-Time"}
-        </button>
-      </div>
-
-      <motion.div
-        className="bg-white shadow rounded-xl p-4 h-[300px] sm:h-[420px] mb-6 sm:mb-10 flex justify-center items-center overflow-x-auto"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-      >
-        <ResponsiveContainer width="100%" height="100%" minWidth={300}>
-          <PieChart
-            margin={{
-              top: 20,
-              right: 40,
-              bottom: 50,
-              left: 40,
-            }}
-          >
-            <Pie
-              data={roomTypeChart}
-              cx="50%"
-              cy="52%"
-              labelLine={false}
-              label={({ name, percent }) => `${name} (${percent}%)`}
-              outerRadius={120}
-              dataKey="value"
-              isAnimationActive={true}
-              animationDuration={800}
-            >
-              {roomTypeChart.map((entry, index) => (
-                <Cell
-                  key={index}
-                  fill={
-                    COLORS[entry.name.toUpperCase()] ||
-                    colorArray[index % colorArray.length]
-                  }
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Occupancy Stats */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">
+              Occupancy Trends
+            </h2>
+            {availableYears.length > 0 && (
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={occupancyData}>
+                <XAxis
+                  dataKey="month"
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
                 />
-              ))}
-            </Pie>
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#f8fafc",
+                  }}
+                  cursor={{ fill: "#334155", opacity: 0.2 }}
+                />
+                <Bar
+                  dataKey="occupied"
+                  stackId="a"
+                  fill="#6366f1"
+                  name="Occupied %"
+                  radius={[0, 0, 4, 4]}
+                />
+                <Bar
+                  dataKey="available"
+                  stackId="a"
+                  fill="#1e293b"
+                  name="Available %"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-            <Legend
-              verticalAlign="bottom"
-              align="center"
-              iconType="square"
-              wrapperStyle={{
-                marginTop: "30px",
-              }}
-            />
-            <Tooltip
-              formatter={(value, name, entry) => [
-                `${entry.payload.count} booked (${entry.payload.percent}%)`,
-                name,
-              ]}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </motion.div>
+        {/* Room Type Distribution */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">Distribution</h2>
+            <button
+              onClick={() =>
+                setChartMode(chartMode === "all" ? "active" : "all")
+              }
+              className={`px-3 py-1 rounded-lg font-medium text-xs transition-all ${
+                chartMode === "all"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {chartMode === "all" ? "Active Only" : "All Time"}
+            </button>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-4 h-64 flex justify-center items-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={roomTypeChart}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {roomTypeChart.map((entry, index) => (
+                    <Cell
+                      key={index}
+                      fill={
+                        COLORS[entry.name.toUpperCase()] ||
+                        colorArray[index % colorArray.length]
+                      }
+                      stroke="rgba(0,0,0,0)"
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#f8fafc",
+                  }}
+                />
+                <Legend
+                  verticalAlign="middle"
+                  align="right"
+                  layout="vertical"
+                  iconType="circle"
+                  wrapperStyle={{ color: "#94a3b8" }}
+                  formatter={(value, entry) => {
+                    const data = roomTypeChart.find((d) => d.name === value);
+                    return `${value} (${data?.percent || 0}%)`;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Revenue Overview */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">
+              Revenue Overview
+            </h2>
+            <select
+              className="bg-slate-900 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={revenueData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="month"
+                  stroke="#94a3b8"
+                  tick={{ fill: "#94a3b8" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tickFormatter={(v) => `$${v / 1000}k`}
+                  tick={{ fill: "#94a3b8" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  formatter={(value) => [
+                    `$${value.toLocaleString()}`,
+                    "Total Revenue",
+                  ]}
+                  labelFormatter={(label) => `${label} ${selectedYear}`}
+                  contentStyle={{
+                    borderRadius: "8px",
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    color: "#f8fafc",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#8b5cf6"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorRevenue)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Revenue by Room Type */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">
+              Revenue by Room Type
+            </h2>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={revenueByType}
+                layout="vertical"
+                margin={{ left: 0, right: 20 }}
+              >
+                <XAxis type="number" hide />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#94a3b8"
+                  tick={{ fill: "#cbd5e1", fontSize: 12 }}
+                  width={80}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: "#334155", opacity: 0.2 }}
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#f8fafc",
+                  }}
+                  formatter={(val) => `$${val.toLocaleString()}`}
+                />
+                <Bar
+                  dataKey="value"
+                  fill="#8b5cf6"
+                  radius={[0, 4, 4, 0]}
+                  barSize={32}
+                >
+                  {revenueByType.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={colorArray[index % colorArray.length]}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
+        <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 text-white">
           Recent Guest Messages
           {messages.some((m) => !m.read) && (
-            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+            <span className="bg-rose-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
               {messages.filter((m) => !m.read).length}
             </span>
           )}
         </h2>
       </div>
 
-      <div className="bg-white shadow rounded-xl p-4 overflow-x-auto">
-        <table className="w-full text-sm text-left min-w-[600px]">
-          <thead className="bg-gray-100">
+      <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-4 overflow-x-auto">
+        <table className="w-full text-sm text-left min-w-[600px] text-slate-300">
+          <thead className="bg-slate-800 text-slate-200">
             <tr>
-              <th className="p-3 min-w-[120px]">Name</th>
+              <th className="p-3 min-w-[120px] rounded-l-lg">Name</th>
               <th className="p-3 min-w-[180px]">Email</th>
               <th className="p-3 min-w-[200px]">Message</th>
               <th className="p-3 min-w-[100px] text-nowrap text-center">
                 Date
               </th>
-              <th className="p-3 min-w-[150px] text-center">Actions</th>
+              <th className="p-3 min-w-[150px] text-center rounded-r-lg">
+                Actions
+              </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-800">
             {messages.length > 0 ? (
               messages.slice(0, 5).map((msg) => (
                 <motion.tr
@@ -871,16 +1029,20 @@ function Dashboard() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
-                  className={`border-b ${
-                    msg.read ? "bg-gray-50" : "bg-yellow-50"
+                  className={`border-b border-slate-800 hover:bg-slate-800/50 transition-colors ${
+                    msg.read ? "bg-transparent" : "bg-indigo-900/10"
                   }`}
                 >
-                  <td className="p-3 font-medium break-words">{msg.name}</td>
-                  <td className="p-3 break-words">{msg.email}</td>
-                  <td className="p-3 text-gray-700 align-top max-w-[450px] whitespace-normal break-words">
+                  <td className="p-3 font-medium break-words text-white">
+                    {msg.name}
+                  </td>
+                  <td className="p-3 break-words text-slate-400">
+                    {msg.email}
+                  </td>
+                  <td className="p-3 text-slate-300 align-top max-w-[450px] whitespace-normal break-words">
                     {msg.message}
                   </td>
-                  <td className="p-3 text-gray-500 whitespace-nowrap text-center align-top">
+                  <td className="p-3 text-slate-500 whitespace-nowrap text-center align-top">
                     {moment(msg.createdAt).format("YYYY-MM-DD")}
                   </td>
                   <td className="p-3">
@@ -893,17 +1055,17 @@ function Dashboard() {
                             });
                             setMessages((prev) =>
                               prev.map((m) =>
-                                m.id === msg.id ? { ...m, read: !msg.read } : m
-                              )
+                                m.id === msg.id ? { ...m, read: !msg.read } : m,
+                              ),
                             );
                           } catch (err) {
                             console.error("Failed to update message:", err);
                           }
                         }}
-                        className={`px-2 py-1 rounded text-xs ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           msg.read
-                            ? "bg-blue-200 text-blue-700 hover:bg-blue-300"
-                            : "bg-green-200 text-green-700 hover:bg-green-300"
+                            ? "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
+                            : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
                         }`}
                       >
                         {msg.read ? "Mark Unread" : "Mark Read"}
@@ -917,14 +1079,14 @@ function Dashboard() {
                             try {
                               await apiService.deleteMessage(msg.id);
                               setMessages((prev) =>
-                                prev.filter((m) => m.id !== msg.id)
+                                prev.filter((m) => m.id !== msg.id),
                               );
                             } catch (err) {
                               console.error("Failed to delete message:", err);
                             }
                           }
                         }}
-                        className="px-2 py-1 rounded text-xs bg-red-200 text-red-700 hover:bg-red-300"
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors"
                       >
                         Delete
                       </button>
@@ -934,7 +1096,10 @@ function Dashboard() {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="text-center p-4 text-gray-500">
+                <td
+                  colSpan={5}
+                  className="text-center p-8 text-slate-500 italic"
+                >
                   No messages found.
                 </td>
               </tr>

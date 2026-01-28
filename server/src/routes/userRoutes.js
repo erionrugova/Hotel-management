@@ -1,5 +1,6 @@
 import express from "express";
 import { body, validationResult } from "express-validator";
+import bcrypt from "bcryptjs";
 import { prisma } from "../server.js";
 import { authenticateToken, authorize } from "../middleware/auth.js";
 
@@ -36,7 +37,9 @@ router.get("/", authorize("ADMIN", "MANAGER"), async (req, res) => {
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
+        notificationPrefs: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -95,7 +98,9 @@ router.get("/:id", async (req, res) => {
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
+        notificationPrefs: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -170,10 +175,18 @@ router.put(
       .optional()
       .isLength({ min: 3 })
       .withMessage("Username must be at least 3 characters"),
+    body("email")
+      .optional()
+      .isEmail()
+      .withMessage("Invalid email format"),
     body("role")
       .optional()
       .isIn(["USER", "MANAGER", "ADMIN"])
       .withMessage("Invalid role"),
+    body("notificationPrefs")
+      .optional()
+      .isObject()
+      .withMessage("Notification preferences must be an object"),
   ],
   async (req, res) => {
     try {
@@ -183,7 +196,7 @@ router.put(
       }
 
       const userId = parseInt(req.params.id);
-      const { username, role } = req.body;
+      const { username, email, role } = req.body;
 
       // check permissions
       const canUpdateRole = ["ADMIN", "MANAGER"].includes(req.user.role);
@@ -202,7 +215,11 @@ router.put(
 
       const updateData = {};
       if (username) updateData.username = username;
+      if (email !== undefined) updateData.email = email || null;
       if (role && canUpdateRole) updateData.role = role;
+      if (req.body.notificationPrefs !== undefined) {
+        updateData.notificationPrefs = req.body.notificationPrefs;
+      }
 
       const user = await prisma.user.update({
         where: { id: userId },
@@ -210,7 +227,9 @@ router.put(
         select: {
           id: true,
           username: true,
+          email: true,
           role: true,
+          notificationPrefs: true,
           updatedAt: true,
         },
       });
@@ -284,5 +303,112 @@ router.delete("/:id", authorize("ADMIN"), async (req, res) => {
     res.status(500).json({ error: "Failed to delete user" });
   }
 });
+
+/**
+ * @swagger
+ * /users/{id}/password:
+ *   put:
+ *     summary: Change user password
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 minLength: 6
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 6
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Validation error or incorrect current password
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Access denied - users can only change their own password unless Admin/Manager
+ *       404:
+ *         description: User not found
+ */
+router.put(
+  "/:id/password",
+  [
+    body("currentPassword")
+      .notEmpty()
+      .withMessage("Current password is required"),
+    body("newPassword")
+      .isLength({ min: 6 })
+      .withMessage("New password must be at least 6 characters"),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const userId = parseInt(req.params.id);
+      const { currentPassword, newPassword } = req.body;
+
+      // Check permissions - users can only change their own password unless Admin/Manager
+      const canChangePassword =
+        req.user.id === userId ||
+        ["ADMIN", "MANAGER"].includes(req.user.role);
+
+      if (!canChangePassword) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Get user with password
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(
+        currentPassword,
+        user.password
+      );
+      if (!isValidPassword) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      // Update password
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword },
+      });
+
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  }
+);
 
 export default router;

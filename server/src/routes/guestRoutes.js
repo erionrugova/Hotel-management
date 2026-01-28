@@ -1,5 +1,6 @@
 import express from "express";
 import moment from "moment-timezone";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../server.js";
 import { authenticateToken, authorize } from "../middleware/auth.js";
 
@@ -51,6 +52,67 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch guests" });
   }
 });
+
+// Calculate refund for cancellation based on policy and days until check-in
+async function calculateCancellationRefund(booking) {
+  // Get rate policy for the room
+  const rate = await prisma.rate.findFirst({
+    where: { roomId: booking.roomId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const policy = rate?.policy || "NON_REFUNDABLE";
+  const today = moment.tz("Europe/Belgrade").startOf("day");
+  const checkInDate = moment.tz(booking.startDate, "Europe/Belgrade").startOf("day");
+  const daysUntilCheckIn = checkInDate.diff(today, "days");
+  const originalPrice = parseFloat(booking.finalPrice || 0);
+
+  let refundAmount = 0;
+  let refundable = false;
+  let reason = "";
+
+  switch (policy) {
+    case "NON_REFUNDABLE":
+      refundAmount = 0;
+      refundable = false;
+      reason = "Non-refundable policy - no refund for cancellations";
+      break;
+    
+    case "FLEXIBLE":
+      // Full refund always available
+      refundAmount = originalPrice;
+      refundable = true;
+      reason = "Flexible policy - full refund available";
+      break;
+    
+    case "STRICT":
+      // Refund only if cancelled 7+ days before check-in
+      if (daysUntilCheckIn >= 7) {
+        refundAmount = originalPrice;
+        refundable = true;
+        reason = `Strict policy - refund available (cancelled ${daysUntilCheckIn} days before check-in)`;
+      } else {
+        refundAmount = 0;
+        refundable = false;
+        reason = `Strict policy - no refund (cancelled ${daysUntilCheckIn} days before check-in, requires 7+ days)`;
+      }
+      break;
+    
+    default:
+      refundAmount = 0;
+      refundable = false;
+      reason = "Unknown policy - no refund";
+  }
+
+  return {
+    refundAmount: Math.max(0, Math.round(refundAmount * 100) / 100),
+    refundable,
+    reason,
+    policy,
+    daysUntilCheckIn,
+    originalPrice,
+  };
+}
 
 // Calculate refund based on policy and early check-out
 async function calculateRefund(booking, actualEndDate) {
@@ -211,8 +273,21 @@ router.patch("/:id/status", authorize("ADMIN", "MANAGER"), async (req, res) => {
     let bookingUpdateData = {};
     let refundInfo = null;
 
+    // Handle cancellation (CANCELLED status)
+    if (status === "CANCELLED" && guest.booking && guest.booking.status !== "CANCELLED") {
+      // Calculate refund for cancellation
+      refundInfo = await calculateCancellationRefund(guest.booking);
+      
+      // Update booking status and refund amount
+      bookingUpdateData.status = "CANCELLED";
+      if (refundInfo.refundable) {
+        bookingUpdateData.refundAmount = new Prisma.Decimal(refundInfo.refundAmount);
+      } else {
+        bookingUpdateData.refundAmount = new Prisma.Decimal(0);
+      }
+    }
     // Handle early check-out (COMPLETED status)
-    if (status === "COMPLETED" && guest.booking) {
+    else if (status === "COMPLETED" && guest.booking) {
       const today = moment.tz("Europe/Belgrade").startOf("day");
       const originalEndDate = moment.tz(guest.booking.endDate, "Europe/Belgrade").startOf("day");
       const actualEndDate = earlyCheckoutDate 
@@ -228,11 +303,16 @@ router.patch("/:id/status", authorize("ADMIN", "MANAGER"), async (req, res) => {
         bookingUpdateData.endDate = actualEndDate.toDate();
         bookingUpdateData.status = "COMPLETED";
         
-        // Store refund amount (we'll add this as a note or separate field)
-        // For now, we'll include it in the response
+        // Store refund amount
+        if (refundInfo.refundable) {
+          bookingUpdateData.refundAmount = new Prisma.Decimal(refundInfo.refundAmount);
+        } else {
+          bookingUpdateData.refundAmount = new Prisma.Decimal(0);
+        }
       } else {
         // Normal check-out on or after scheduled date
         bookingUpdateData.status = "COMPLETED";
+        bookingUpdateData.refundAmount = new Prisma.Decimal(0);
         refundInfo = { refundAmount: 0, refundable: false, reason: "Normal check-out" };
       }
     } else if (status) {

@@ -3,6 +3,37 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
+
+import { fileURLToPath } from "url";
+
+// Load environment variables immediately
+dotenv.config();
+
+// FORCE load .env from server root to ensure it's picked up regardless of CWD
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envPath = path.resolve(__dirname, "../.env");
+
+console.log(`🔧 Loading .env from: ${envPath}`);
+const result = dotenv.config({ path: envPath });
+
+if (result.error) {
+  console.error("❌ Failed to load .env file:", result.error.message);
+} else {
+  console.log("✅ .env loaded successfully");
+}
+
+console.log("🔍 Google Config Status:");
+console.log(
+  `  GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? "Set (Ends with " + process.env.GOOGLE_CLIENT_ID.slice(-5) + ")" : "MISSING"}`,
+);
+console.log(
+  `  GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? "Set" : "MISSING"}`,
+);
+console.log(
+  `  GOOGLE_REDIRECT_URI: ${process.env.GOOGLE_REDIRECT_URI || "MISSING"}`,
+);
+
 import pkg from "@prisma/client";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
@@ -20,19 +51,26 @@ import rateRoutes from "./routes/rateRoutes.js";
 import dealRoutes from "./routes/dealRoutes.js";
 import guestRoutes from "./routes/guestRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
 
+// Ensure dotenv is loaded (redundant check but safe)
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 export const prisma = new PrismaClient();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 
 // CORS configuration - MUST come before rate limiting to handle preflight requests
 const allowedOrigins = [
@@ -69,7 +107,7 @@ app.use(
     preflightContinue: false,
     optionsSuccessStatus: 204,
     maxAge: 86400, // 24 hours - cache preflight requests
-  })
+  }),
 );
 
 // Log CORS requests in development
@@ -81,7 +119,7 @@ if (process.env.NODE_ENV === "development") {
         req.method,
         req.path,
         "Origin:",
-        req.headers.origin
+        req.headers.origin,
       );
     }
     next();
@@ -117,7 +155,7 @@ if (process.env.ENABLE_RATE_LIMIT === "true") {
   console.log("✅ Rate limiting enabled");
 } else {
   console.log(
-    "⚠️  Rate limiting DISABLED (set ENABLE_RATE_LIMIT=true to enable)"
+    "⚠️  Rate limiting DISABLED (set ENABLE_RATE_LIMIT=true to enable)",
   );
 }
 
@@ -138,7 +176,7 @@ app.use(
     res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
     next();
   },
-  express.static(uploadsPath)
+  express.static(uploadsPath),
 );
 
 app.use("/api/auth", authRoutes);
@@ -149,12 +187,13 @@ app.use("/api/rates", rateRoutes);
 app.use("/api/deals", dealRoutes);
 app.use("/api/guests", guestRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.get("/api/health", (req, res) =>
   res.json({
     status: "OK",
     message: "Hotel Management API running securely",
-  })
+  }),
 );
 
 // Swagger API Documentation
@@ -165,7 +204,7 @@ try {
     swaggerUi.setup(swaggerSpec, {
       customCss: ".swagger-ui .topbar { display: none }",
       customSiteTitle: "Hotel Management API Documentation",
-    })
+    }),
   );
   console.log("✅ Swagger UI configured successfully");
 } catch (error) {

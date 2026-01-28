@@ -4,7 +4,7 @@ A complete full-stack hotel management system with REST API backend and modern w
 
 ## Quick Start
 
-### Option 1: Docker (Recommended)
+### Docker 
 
 #### Prerequisites
 
@@ -12,24 +12,6 @@ A complete full-stack hotel management system with REST API backend and modern w
 - Ports 3000, 3001, and 3306 available
 
 #### Step 1: Start MySQL Database Container
-
-If you don't have a MySQL container yet, create it:
-
-```bash
-# Pull MySQL image (if not already pulled)
-docker pull mysql:8.0
-
-# Create and start MySQL container
-docker run --name hotel-mysql \
-  -e MYSQL_ROOT_PASSWORD=rootpassword \
-  -e MYSQL_DATABASE=hotel_management \
-  -e MYSQL_USER=hotel_user \
-  -e MYSQL_PASSWORD=hotel_password \
-  -p 3306:3306 \
-  -d mysql:8.0
-```
-
-**If the container already exists, just start it:**
 
 ```bash
 docker start hotel-mysql
@@ -45,8 +27,13 @@ docker ps
 
 ```bash
 # Start server in production mode
-docker-compose up -d
+docker-compose up --build
 ```
+
+### Start front-end
+cd client
+npm install
+npm start
 
 **Access points:**
 
@@ -134,43 +121,6 @@ docker-compose -f docker-compose.dev.yml down
 
 ---
 
-### Option 2: Manual Setup
-
-1. **Install all dependencies:**
-
-   ```bash
-   npm run install-all
-   ```
-
-2. **Set up environment:**
-
-   ```bash
-   cp server/config.env server/.env
-   ```
-
-3. **Complete setup (database + seed data):**
-
-   ```bash
-   npm run setup
-   ```
-
-4. **Start both server and client:**
-
-   ```bash
-   npm run dev:both
-   ```
-
-   Or start them separately:
-
-   ```bash
-   # Terminal 1 - Server
-   npm run dev
-
-   # Terminal 2 - Client
-   npm run dev:client
-   ```
-
----
 
 ## Docker Commands Reference
 
@@ -310,19 +260,6 @@ exit
 
 ---
 
-## Available Scripts
-
-- `npm run install-all` - Install all dependencies (server + client)
-- `npm run dev` - Start development server
-- `npm run dev:client` - Start React client
-- `npm run dev:both` - Start both server and client concurrently
-- `npm run start` - Start production server
-- `npm run setup` - Complete setup (install + database + seed)
-- `npm run db:push` - Push database schema
-- `npm run db:seed` - Seed database with dummy data
-
----
-
 ## Tech Stack
 
 - **Backend:** Node.js, Express.js, MySQL, Prisma ORM
@@ -373,7 +310,7 @@ exit
 
 After seeding the database:
 
-- **Admin:** `admin` / `password123`
+- **Admin:** `admin` / `123456`
 - **Manager:** `manager` / `password123`
 - **User:** `john_doe` / `password123`
 - **User:** `jane_smith` / `password123`
@@ -436,3 +373,7 @@ docker-compose logs -f
 - **Database:** hotel_management
 - **User:** hotel_user
 - **Password:** hotel_password
+
+### to manually change the passowrd: 
+cd server
+node reset-admin-password.js your_new_password
