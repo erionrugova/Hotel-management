@@ -182,7 +182,7 @@ router.post(
  *         description: Login successful. Refresh token is stored in HTTP-only cookie (not in response body for security).
  *         headers:
  *           Set-Cookie:
- *             description: Refresh token stored in HTTP-only cookie (refreshToken). Valid for 7 days. Used automatically by /auth/refresh endpoint.
+ *             description: Refresh token stored in HTTP-only cookie (refreshToken). Valid for 7 days. Used automatically by /auth/refresh endpoint. The refresh token is NOT included in the response body for security reasons - it is only available via the Set-Cookie header.
  *             schema:
  *               type: string
  *               example: refreshToken=abc123...; HttpOnly; Path=/; SameSite=Lax; Expires=...
@@ -200,6 +200,19 @@ router.post(
  *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 user:
  *                   $ref: '#/components/schemas/User'
+ *             examples:
+ *               success:
+ *                 summary: Successful login response
+ *                 value:
+ *                   message: "Login successful"
+ *                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                   user:
+ *                     id: 1
+ *                     username: "admin"
+ *                     role: "ADMIN"
+ *                 description: |
+ *                   **Note:** The refresh token is returned in the `Set-Cookie` header (not in the response body).
+ *                   Check the Response Headers section to see the refresh token cookie.
  *       401:
  *         description: Invalid credentials
  *         content:
