@@ -21,6 +21,9 @@ model User {
   refreshTokens         RefreshToken[]
   sessionLogs           SessionLog[]
 
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -43,6 +46,11 @@ model Guest {
   deal    Deal?   @relation("GuestToDeal", fields: [dealId], references: [id], onDelete: SetNull) // ✅ FIX
 
   @@index([roomId], map: "Guest_roomId_fkey")
+  @@index([email])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([dealId])
+  @@index([createdAt])
 }
 
 model Room {
@@ -63,6 +71,11 @@ model Room {
   bookings Booking[]
   features RoomFeatureMap[]
 
+  @@index([type])
+  @@index([cleanStatus])
+  @@index([capacity])
+  @@index([price])
+  @@index([createdAt])
   @@map("rooms")
 }
 
@@ -93,6 +106,12 @@ model Booking {
   @@index([roomId], map: "bookings_roomId_fkey")
   @@index([userId], map: "bookings_userId_fkey")
   @@index([dealId], map: "bookings_dealId_fkey")
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([customerEmail])
+  @@index([createdAt])
   @@map("bookings")
 }
 
@@ -140,6 +159,11 @@ model Deal {
   rates    Rate[]
   bookings Booking[] @relation("BookingToDeal")
   guests   Guest[]   @relation("GuestToDeal")
+
+  @@index([status])
+  @@index([roomType])
+  @@index([endDate])
+  @@index([createdAt])
 }
 
 model Rate {
@@ -166,6 +190,10 @@ model Contact {
   message   String   @db.Text
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([read])
+  @@index([createdAt])
 }
 
 enum Role {
@@ -235,6 +263,10 @@ model RefreshToken {
   expiresAt DateTime
   revoked   Boolean  @default(false)
 
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revoked])
+  @@index([createdAt])
   @@map("refresh_tokens")
 }
 
@@ -249,6 +281,9 @@ model SessionLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+  @@index([ipAddress])
   @@map("session_logs")
 }
 

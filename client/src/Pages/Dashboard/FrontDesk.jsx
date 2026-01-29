@@ -61,10 +61,10 @@ function FrontDesk() {
         }
 
         if (bookingsResult.status === "fulfilled") {
-          // Only show CONFIRMED bookings in Front Desk calendar
+          // Show CONFIRMED bookings in calendar, and include COMPLETED for checked-out list
           setItems(
             bookingsResult.value
-              .filter((b) => b.status === "CONFIRMED")
+              .filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED")
               .map((b) => ({
                 id: b.id,
                 group: b.roomId,
@@ -122,8 +122,8 @@ function FrontDesk() {
         if (!saved || !saved.id) {
           throw new Error("Booking update failed - no data returned");
         }
-        // Only update if booking is CONFIRMED (to show in calendar)
-        if (saved.status === "CONFIRMED") {
+        // Only update if booking is CONFIRMED or COMPLETED (to show in calendar/list)
+        if (saved.status === "CONFIRMED" || saved.status === "COMPLETED") {
           setItems((prev) =>
             prev.map((i) =>
               i.id === editing.id
@@ -145,7 +145,7 @@ function FrontDesk() {
             ),
           );
         } else {
-          // If status changed from CONFIRMED to something else, remove from calendar
+          // If status changed from CONFIRMED/COMPLETED to something else, remove from calendar
           setItems((prev) => prev.filter((i) => i.id !== editing.id));
         }
       } else {
@@ -204,7 +204,7 @@ function FrontDesk() {
       if (results[1].status === "fulfilled") {
         setItems(
           results[1].value
-            .filter((b) => b.status === "CONFIRMED")
+            .filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED")
             .map((b) => ({
               id: b.id,
               group: b.roomId,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useUser } from "../../UserContext";
 import { useNavigate } from "react-router-dom";
 import { Home } from "lucide-react";
@@ -101,8 +101,6 @@ function Dashboard() {
           roomsResult.status === "fulfilled" ? roomsResult.value : [];
         const bookingsData =
           bookingsResult.status === "fulfilled" ? bookingsResult.value : [];
-        const guestsData =
-          guestsResult.status === "fulfilled" ? guestsResult.value : [];
         const contactData =
           contactResult.status === "fulfilled" ? contactResult.value : [];
 
@@ -110,8 +108,6 @@ function Dashboard() {
 
         // 1. Calculate Stats
         const now = moment().tz("Europe/Belgrade");
-        const todayStr = now.format("YYYY-MM-DD");
-        const tomorrowStr = now.clone().add(1, "days").format("YYYY-MM-DD");
 
         // Filter bookings: exclude COMPLETED and CANCELLED for active counts
         const activeBookings = bookingsData.filter(
@@ -157,7 +153,6 @@ function Dashboard() {
 
         // This Week's Average Occupancy (exclude COMPLETED and CANCELLED)
         const weekStart = now.clone().startOf("week"); // Sunday
-        const weekEnd = now.clone().endOf("week"); // Saturday
         let totalOccupiedWeek = 0;
         for (let i = 0; i < 7; i++) {
           const day = weekStart.clone().add(i, "days");
@@ -435,23 +430,29 @@ function Dashboard() {
     fetchDashboardData();
   }, [user, refreshFlag, roomPeriod, selectedYear, chartMode]); // Add dependencies to re-run when filters change
 
-  // Prepare Today's Activity Lists
-  const todayCheckIns = bookings.filter((b) => {
-    const start = moment.tz(b.startDate, "Europe/Belgrade");
-    return start.isSame(moment(), "day") && b.status === "CONFIRMED";
-  });
-  const todayCheckOuts = bookings.filter((b) => {
-    const end = moment.tz(b.endDate, "Europe/Belgrade");
-    return end.isSame(moment(), "day") && b.status === "CONFIRMED";
-  });
+  // Prepare Today's Activity Lists (memoized for performance)
+  const todayCheckIns = useMemo(() => {
+    return bookings.filter((b) => {
+      const start = moment.tz(b.startDate, "Europe/Belgrade");
+      return start.isSame(moment(), "day") && b.status === "CONFIRMED";
+    });
+  }, [bookings]);
 
-  const COLORS = {
+  const todayCheckOuts = useMemo(() => {
+    return bookings.filter((b) => {
+      const end = moment.tz(b.endDate, "Europe/Belgrade");
+      return end.isSame(moment(), "day") && b.status === "CONFIRMED";
+    });
+  }, [bookings]);
+
+  const COLORS = useMemo(() => ({
     SINGLE: "#0088FE",
     DOUBLE: "#00C49F",
     SUITE: "#FFBB28",
     DELUXE: "#FF8042",
-  };
-  const colorArray = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+  }), []);
+
+  const colorArray = useMemo(() => ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"], []);
 
   if (loading) {
     return (
