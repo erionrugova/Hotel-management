@@ -112,3 +112,20 @@ footer::before {
   background-color: rgba(184, 155, 94, 0.2);
   margin-bottom: 1rem;
 }
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateY(0) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(200%) translateY(0) skewX(-12deg);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 8s infinite;
+}
+
+.bg-size-200 {
+  background-size: 200% 200%;
+}

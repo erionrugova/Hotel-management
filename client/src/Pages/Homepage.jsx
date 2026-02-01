@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import Footer from "../Pages/components/footer";
 import photoTop from "../Images/top.jpg";
 import photoLeft1 from "../Images/left1.jpg";
 import photoLeft2 from "../Images/left2.jpg";
@@ -185,8 +184,6 @@ function Homepage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

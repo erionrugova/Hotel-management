@@ -60,9 +60,12 @@ function Rooms() {
     return room?.imageUrl || fallbackByType[room?.type] || photo1;
   };
 
+  // Ensure rooms is an array before processing
+  const roomsArray = Array.isArray(rooms) ? rooms : [];
+  
   const uniqueRooms = Object.values(
-    rooms.reduce((acc, room) => {
-      if (!acc[room.type]) acc[room.type] = room;
+    roomsArray.reduce((acc, room) => {
+      if (room && !acc[room.type]) acc[room.type] = room;
       return acc;
     }, {})
   );
@@ -241,7 +244,7 @@ function Rooms() {
           );
         })}
 
-        {rooms.length === 0 && (
+        {roomsArray.length === 0 && !loading && (
           <div className="text-center py-8 text-gray-500 text-lg">
             No rooms found.
           </div>
