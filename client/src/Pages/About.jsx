@@ -23,13 +23,13 @@ import {
   MapPin
 } from "lucide-react";
 import { FaArrowRight, FaAward, FaSpa, FaUtensils, FaCity, FaStar, FaHotel } from "react-icons/fa";
-import hotelImg from "../Images/fourSeasons.webp";
+import photoTop from "../Images/top.jpg";
 import photo7 from "../Images/birk-enwald-znZXwcHdKwM-unsplash.jpg";
 import photo8 from "../Images/lily-banse--YHSwy6uqvk-unsplash.jpg";
-import photoTop from "../Images/top.jpg";
 import photoLeft1 from "../Images/left1.jpg";
 import photoLeft2 from "../Images/left2.jpg";
 import photoConference from "../Images/meetings.jpg";
+import heroImage from "../Images/roberto-nickson-emqnSQwQQDo-unsplash.jpg";
 
 // Reusable FadeInSection Component
 const FadeInSection = ({ children, delay = 0, className = "" }) => {
@@ -226,7 +226,7 @@ function AboutUs() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `url(${hotelImg})`,
+            backgroundImage: `url(${heroImage})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundAttachment: "fixed",
