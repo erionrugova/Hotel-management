@@ -92,31 +92,37 @@ function Deals() {
     filter === "All" ? deals : deals.filter((d) => d.status === filter);
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6">Deals</h2>
+    <div className="p-10 min-h-screen bg-slate-950 text-slate-100">
+      <h2 className="text-3xl font-semibold mb-8 text-white">Deals</h2>
 
-      <div className="flex justify-between mb-4">
+      <div className="flex justify-between mb-6">
         <div className="space-x-2">
           <button
             onClick={() => setFilter("ONGOING")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "ONGOING" ? "bg-blue-600 text-white" : "border"
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === "ONGOING" 
+                ? "bg-indigo-600 text-white" 
+                : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
             }`}
           >
             Ongoing
           </button>
           <button
             onClick={() => setFilter("INACTIVE")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "INACTIVE" ? "bg-yellow-500 text-white" : "border"
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === "INACTIVE" 
+                ? "bg-yellow-600 text-white" 
+                : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
             }`}
           >
             Deactivated
           </button>
           <button
             onClick={() => setFilter("All")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "All" ? "bg-gray-600 text-white" : "border"
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === "All" 
+                ? "bg-slate-600 text-white" 
+                : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
             }`}
           >
             All
@@ -126,7 +132,7 @@ function Deals() {
         {(isAdmin() || isManager()) && (
           <button
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white"
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-lg shadow-indigo-500/20"
           >
             Add deal
           </button>
@@ -134,14 +140,14 @@ function Deals() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h3 className="text-lg font-semibold mb-4">New Deal</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl w-96 text-slate-100">
+            <h3 className="text-xl font-semibold mb-4 text-white">New Deal</h3>
 
             <input
               type="text"
               placeholder="Deal name"
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
@@ -149,20 +155,20 @@ function Deals() {
             <input
               type="number"
               placeholder="Discount (%)"
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={form.discount}
               onChange={(e) => setForm({ ...form, discount: e.target.value })}
             />
 
             <input
               type="date"
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={form.endDate}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
             />
 
             <select
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={form.roomType}
               onChange={(e) => setForm({ ...form, roomType: e.target.value })}
             >
@@ -175,7 +181,7 @@ function Deals() {
             </select>
 
             <select
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
             >
@@ -183,11 +189,16 @@ function Deals() {
               <option value="INACTIVE">Inactive</option>
             </select>
 
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setShowModal(false)}>Cancel</button>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button 
+                onClick={() => setShowModal(false)}
+                className="px-3 py-1.5 text-slate-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleAddDeal}
-                className="px-3 py-1 bg-blue-600 text-white rounded"
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
               >
                 Save
               </button>
@@ -197,13 +208,13 @@ function Deals() {
       )}
 
       {editModal && editForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h3 className="text-lg font-semibold mb-4">Edit Deal</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl w-96 text-slate-100">
+            <h3 className="text-xl font-semibold mb-4 text-white">Edit Deal</h3>
 
             <input
               type="text"
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={editForm.name}
               onChange={(e) =>
                 setEditForm({ ...editForm, name: e.target.value })
@@ -212,7 +223,7 @@ function Deals() {
 
             <input
               type="number"
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={editForm.discount}
               onChange={(e) =>
                 setEditForm({ ...editForm, discount: e.target.value })
@@ -221,7 +232,7 @@ function Deals() {
 
             <input
               type="date"
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={editForm.endDate}
               onChange={(e) =>
                 setEditForm({ ...editForm, endDate: e.target.value })
@@ -229,7 +240,7 @@ function Deals() {
             />
 
             <select
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={editForm.roomType}
               onChange={(e) =>
                 setEditForm({ ...editForm, roomType: e.target.value })
@@ -243,7 +254,7 @@ function Deals() {
             </select>
 
             <select
-              className="border p-2 w-full mb-2"
+              className="bg-slate-800 border border-slate-700 text-white rounded px-3 py-2 w-full mb-3 focus:ring-2 focus:ring-indigo-500 outline-none"
               value={editForm.status}
               onChange={(e) =>
                 setEditForm({ ...editForm, status: e.target.value })
@@ -253,11 +264,16 @@ function Deals() {
               <option value="INACTIVE">Inactive</option>
             </select>
 
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setEditModal(false)}>Cancel</button>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button 
+                onClick={() => setEditModal(false)}
+                className="px-3 py-1.5 text-slate-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
               <button
                 onClick={() => handleUpdateDeal(editForm.id, editForm)}
-                className="px-3 py-1 bg-yellow-600 text-white rounded"
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
               >
                 Save Changes
               </button>
@@ -266,47 +282,47 @@ function Deals() {
         </div>
       )}
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-gray-100">
+          <thead className="bg-slate-800 text-slate-200">
             <tr>
-              <th className="p-3">ID</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Discount</th>
-              <th className="p-3">End Date</th>
-              <th className="p-3">Room Type</th>
-              <th className="p-3">Status</th>
-              {(isAdmin() || isManager()) && <th className="p-3">Actions</th>}
+              <th className="p-4 font-semibold">ID</th>
+              <th className="p-4 font-semibold">Name</th>
+              <th className="p-4 font-semibold">Discount</th>
+              <th className="p-4 font-semibold">End Date</th>
+              <th className="p-4 font-semibold">Room Type</th>
+              <th className="p-4 font-semibold">Status</th>
+              {(isAdmin() || isManager()) && <th className="p-4 font-semibold">Actions</th>}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-800">
             {filteredDeals.map((d, index) => (
-              <tr key={d.id} className="border-b">
-                <td className="p-3">{index + 1}</td>
-                <td className="p-3">{d.name}</td>
-                <td className="p-3">{d.discount}%</td>
-                <td className="p-3">
+              <tr key={d.id} className="hover:bg-slate-800/50 transition-colors">
+                <td className="p-4 text-slate-400">{index + 1}</td>
+                <td className="p-4 text-slate-200 font-medium">{d.name}</td>
+                <td className="p-4 text-slate-300">{d.discount}%</td>
+                <td className="p-4 text-slate-300">
                   {d.endDate ? new Date(d.endDate).toLocaleDateString() : "—"}
                 </td>
-                <td className="p-3">{d.roomType}</td>
-                <td className="p-3">
+                <td className="p-4 text-slate-300">{d.roomType}</td>
+                <td className="p-4">
                   <span
-                    className={`px-3 py-1 rounded-lg text-sm ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${
                       d.status === "ONGOING"
-                        ? "bg-green-100 text-green-700"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                         : d.status === "INACTIVE"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
+                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
                     }`}
                   >
                     {d.status}
                   </span>
                 </td>
                 {(isAdmin() || isManager()) && (
-                  <td className="p-3 space-x-2">
+                  <td className="p-4 space-x-2">
                     <button
                       onClick={() => handleEditClick(d)}
-                      className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
+                      className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
                     >
                       Edit
                     </button>
@@ -316,7 +332,7 @@ function Deals() {
                         onClick={() =>
                           handleUpdateDeal(d.id, { status: "INACTIVE" })
                         }
-                        className="px-2 py-1 bg-yellow-500 text-white rounded text-xs"
+                        className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg text-xs font-medium transition-colors border border-amber-500/20"
                       >
                         Deactivate
                       </button>
@@ -325,7 +341,7 @@ function Deals() {
                         onClick={() =>
                           handleUpdateDeal(d.id, { status: "ONGOING" })
                         }
-                        className="px-2 py-1 bg-green-500 text-white rounded text-xs"
+                        className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium transition-colors border border-emerald-500/20"
                       >
                         Reactivate
                       </button>
@@ -333,7 +349,7 @@ function Deals() {
 
                     <button
                       onClick={() => handleDeleteDeal(d.id)}
-                      className="px-2 py-1 bg-red-500 text-white rounded text-xs"
+                      className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors border border-red-500/20"
                     >
                       Delete
                     </button>
@@ -343,7 +359,7 @@ function Deals() {
             ))}
             {filteredDeals.length === 0 && (
               <tr>
-                <td colSpan="7" className="text-center p-4 text-gray-500">
+                <td colSpan="7" className="text-center p-8 text-slate-500">
                   No deals found.
                 </td>
               </tr>

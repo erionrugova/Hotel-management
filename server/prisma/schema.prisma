@@ -9,16 +9,21 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  username      String         @unique
-  password      String
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  bookings      Booking[]
-  refreshTokens RefreshToken[]
-  sessionLogs   SessionLog[]
+  id                    Int            @id @default(autoincrement())
+  username              String         @unique
+  password              String
+  email                 String?
+  role                  Role           @default(USER)
+  notificationPrefs     Json?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  bookings              Booking[]
+  refreshTokens         RefreshToken[]
+  sessionLogs           SessionLog[]
 
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -41,13 +46,18 @@ model Guest {
   deal    Deal?   @relation("GuestToDeal", fields: [dealId], references: [id], onDelete: SetNull) // ✅ FIX
 
   @@index([roomId], map: "Guest_roomId_fkey")
+  @@index([email])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([dealId])
+  @@index([createdAt])
 }
 
 model Room {
   id          Int         @id @default(autoincrement())
   roomNumber  String      @unique
   floor       String?
-  type        rooms_type
+  type        String      @db.VarChar(50) // Changed from enum to String to support dynamic room types
   price       Decimal     @db.Decimal(10, 2)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -61,6 +71,11 @@ model Room {
   bookings Booking[]
   features RoomFeatureMap[]
 
+  @@index([type])
+  @@index([cleanStatus])
+  @@index([capacity])
+  @@index([price])
+  @@index([createdAt])
   @@map("rooms")
 }
 
@@ -80,6 +95,7 @@ model Booking {
   paymentStatus     PaymentStatus         @default(PENDING)
   baseRate          Decimal?              @db.Decimal(10, 2)
   finalPrice        Decimal?              @db.Decimal(10, 2)
+  refundAmount      Decimal?              @db.Decimal(10, 2)
   dealId            Int?
 
   guests Guest?
@@ -90,6 +106,12 @@ model Booking {
   @@index([roomId], map: "bookings_roomId_fkey")
   @@index([userId], map: "bookings_userId_fkey")
   @@index([dealId], map: "bookings_dealId_fkey")
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([customerEmail])
+  @@index([createdAt])
   @@map("bookings")
 }
 
@@ -137,6 +159,11 @@ model Deal {
   rates    Rate[]
   bookings Booking[] @relation("BookingToDeal")
   guests   Guest[]   @relation("GuestToDeal")
+
+  @@index([status])
+  @@index([roomType])
+  @@index([endDate])
+  @@index([createdAt])
 }
 
 model Rate {
@@ -163,6 +190,10 @@ model Contact {
   message   String   @db.Text
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([read])
+  @@index([createdAt])
 }
 
 enum Role {
@@ -232,6 +263,10 @@ model RefreshToken {
   expiresAt DateTime
   revoked   Boolean  @default(false)
 
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revoked])
+  @@index([createdAt])
   @@map("refresh_tokens")
 }
 
@@ -246,5 +281,21 @@ model SessionLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+  @@index([ipAddress])
   @@map("session_logs")
+}
+
+model HotelSettings {
+  id           Int      @id @default(autoincrement())
+  name         String   @default("Luxury Hotel & Spa")
+  address      String   @default("123 Ocean Drive, Miami Beach, FL")
+  contactEmail String   @default("contact@luxuryhotel.com")
+  phone        String   @default("+1 (555) 123-4567")
+  currency     String   @default("USD ($)")
+  timezone     String   @default("America/New_York")
+  updatedAt    DateTime @updatedAt
+
+  @@map("hotel_settings")
 }

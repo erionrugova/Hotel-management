@@ -7,14 +7,17 @@ import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 
 const router = express.Router();
-// Initialize Google OAuth client only if credentials are provided
-const client =
-  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-    ? new OAuth2Client(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET
-      )
-    : null;
+
+// Helper to get Google OAuth client
+const getGoogleClient = () => {
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+    );
+  }
+  return null;
+};
 
 // helper: log session
 async function logSession(userId, action, req) {
@@ -149,7 +152,7 @@ router.post(
       console.error("Register error:", error);
       res.status(500).json({ error: "Failed to create user" });
     }
-  }
+  },
 );
 
 /**
@@ -179,7 +182,7 @@ router.post(
  *         description: Login successful. Refresh token is stored in HTTP-only cookie (not in response body for security).
  *         headers:
  *           Set-Cookie:
- *             description: Refresh token stored in HTTP-only cookie (refreshToken). Valid for 7 days. Used automatically by /auth/refresh endpoint.
+ *             description: Refresh token stored in HTTP-only cookie (refreshToken). Valid for 7 days. Used automatically by /auth/refresh endpoint. The refresh token is NOT included in the response body for security reasons - it is only available via the Set-Cookie header.
  *             schema:
  *               type: string
  *               example: refreshToken=abc123...; HttpOnly; Path=/; SameSite=Lax; Expires=...
@@ -197,6 +200,19 @@ router.post(
  *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 user:
  *                   $ref: '#/components/schemas/User'
+ *             examples:
+ *               success:
+ *                 summary: Successful login response
+ *                 value:
+ *                   message: "Login successful"
+ *                   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                   user:
+ *                     id: 1
+ *                     username: "admin"
+ *                     role: "ADMIN"
+ *                 description: |
+ *                   **Note:** The refresh token is returned in the `Set-Cookie` header (not in the response body).
+ *                   Check the Response Headers section to see the refresh token cookie.
  *       401:
  *         description: Invalid credentials
  *         content:
@@ -235,7 +251,7 @@ router.post(
       const accessToken = jwt.sign(
         { userId: user.id, username: user.username, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
+        { expiresIn: process.env.JWT_EXPIRES_IN },
       );
 
       await createRefreshToken(user.id, res);
@@ -256,7 +272,7 @@ router.post(
           : "Login failed";
       res.status(500).json({ error: errorMessage });
     }
-  }
+  },
 );
 
 /**
@@ -319,7 +335,7 @@ router.post("/refresh", async (req, res) => {
         role: tokenRecord.user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN },
     );
 
     await logSession(tokenRecord.userId, "REFRESH", req);
@@ -381,6 +397,18 @@ router.post("/logout", async (req, res) => {
 // google login (one tap) - Swagger documentation removed
 router.post("/google", async (req, res) => {
   try {
+    const client = getGoogleClient();
+    console.log("🔍 Google Login Attempt:");
+    console.log(
+      "  GOOGLE_CLIENT_ID configured:",
+      !!process.env.GOOGLE_CLIENT_ID,
+    );
+    console.log(
+      "  GOOGLE_CLIENT_SECRET configured:",
+      !!process.env.GOOGLE_CLIENT_SECRET,
+    );
+    console.log("  Client initialized:", !!client);
+
     if (!client || !process.env.GOOGLE_CLIENT_ID) {
       return res.status(503).json({
         error: "Google OAuth not configured",
@@ -412,7 +440,7 @@ router.post("/google", async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN },
     );
 
     await createRefreshToken(user.id, res);
@@ -431,6 +459,7 @@ router.post("/google", async (req, res) => {
 
 // Google OAuth initiation - Swagger documentation removed
 router.get("/google", (req, res) => {
+  const client = getGoogleClient();
   if (!client || !process.env.GOOGLE_CLIENT_ID) {
     return res.status(503).json({
       error: "Google OAuth not configured",
@@ -451,9 +480,10 @@ router.get("/google", (req, res) => {
 // Google OAuth callback - Swagger documentation removed
 router.get("/google/callback", async (req, res) => {
   try {
+    const client = getGoogleClient();
     if (!client || !process.env.GOOGLE_CLIENT_ID) {
       return res.redirect(
-        "http://localhost:3001/login?error=google_oauth_not_configured"
+        "http://localhost:3001/login?error=google_oauth_not_configured",
       );
     }
 
@@ -486,7 +516,7 @@ router.get("/google/callback", async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN },
     );
 
     await createRefreshToken(user.id, res);
@@ -499,12 +529,12 @@ router.get("/google/callback", async (req, res) => {
       role: user.role,
     };
     const userBase64 = Buffer.from(JSON.stringify(userPayload)).toString(
-      "base64"
+      "base64",
     );
 
     // redirect frontend with backend JWT
     const redirectFrontend = `http://localhost:3001/login-success?token=${encodeURIComponent(
-      accessToken
+      accessToken,
     )}&user=${encodeURIComponent(userBase64)}`;
 
     res.redirect(redirectFrontend);

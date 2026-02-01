@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, memo, useMemo } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -9,6 +9,7 @@ import { UserProvider, useUser } from "./UserContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import SessionExpiredModal from "./components/SessionExpiredModal";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Lazy load components for code splitting
 const Layout = lazy(() => import("./Layout"));
@@ -28,7 +29,8 @@ const Guests = lazy(() => import("./Pages/Dashboard/Guests"));
 const RoomsDashboard = lazy(() => import("./Pages/Dashboard/RoomsDashboard"));
 const Deals = lazy(() => import("./Pages/Dashboard/Deals"));
 const Rate = lazy(() => import("./Pages/Dashboard/Rate"));
-const Refunds = lazy(() => import("./Pages/Dashboard/Refunds"));
+const Invoices = lazy(() => import("./Pages/Dashboard/Refunds"));
+const Settings = lazy(() => import("./Pages/Dashboard/Settings"));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -37,7 +39,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = memo(({ children, requiredRole }) => {
   const { user, loading } = useUser();
 
   if (loading) {
@@ -57,7 +59,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   }
 
   return children;
-};
+});
 
 function AppRoutes() {
   return (
@@ -89,7 +91,8 @@ function AppRoutes() {
           <Route path="rooms" element={<RoomsDashboard />} />
           <Route path="deals" element={<Deals />} />
           <Route path="rates" element={<Rate />} />
-          <Route path="refunds" element={<Refunds />} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </Suspense>
@@ -97,15 +100,22 @@ function AppRoutes() {
 }
 
 function App() {
+  const googleClientId = useMemo(
+    () => process.env.REACT_APP_GOOGLE_CLIENT_ID,
+    []
+  );
+
   return (
-    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-      <UserProvider>
-        <SessionExpiredModal />
-        <Router>
-          <AppRoutes />
-        </Router>
-      </UserProvider>
-    </GoogleOAuthProvider>
+    <ErrorBoundary>
+      <GoogleOAuthProvider clientId={googleClientId}>
+        <UserProvider>
+          <SessionExpiredModal />
+          <Router>
+            <AppRoutes />
+          </Router>
+        </UserProvider>
+      </GoogleOAuthProvider>
+    </ErrorBoundary>
   );
 }
 

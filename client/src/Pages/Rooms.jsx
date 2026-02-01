@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import apiService from "../services/api";
 import { useUser } from "../UserContext";
+import LazyImage from "../components/LazyImage";
 
 import photo1 from "../Images/albert-vincent-wu-fupf3-xAUqw-unsplash.jpg";
 import photo2 from "../Images/adam-winger-VGs8z60yT2c-unsplash.jpg";
@@ -44,36 +45,36 @@ function Rooms() {
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleFilterChange = (e) => {
+  const handleFilterChange = useCallback((e) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
-  const getRoomImage = (room) => {
+  const getRoomImage = useCallback((room) => {
     if (room?.imageUrl?.startsWith("/uploads")) {
-      return `http://localhost:3000${room.imageUrl}`;
+      return `${process.env.REACT_APP_API_URL || "http://localhost:3000"}${room.imageUrl}`;
     }
     return room?.imageUrl || fallbackByType[room?.type] || photo1;
-  };
+  }, []);
 
-  // Ensure rooms is an array before processing
-  const roomsArray = Array.isArray(rooms) ? rooms : [];
-  
-  const uniqueRooms = Object.values(
-    roomsArray.reduce((acc, room) => {
-      if (room && !acc[room.type]) acc[room.type] = room;
-      return acc;
-    }, {})
-  );
-
-  const order = { SINGLE: 1, DOUBLE: 2, DELUXE: 3, SUITE: 4 };
-  const orderedRooms = uniqueRooms.sort(
-    (a, b) => (order[a.type] || 99) - (order[b.type] || 99)
-  );
+  // Ensure rooms is an array before processing and use useMemo for optimization
+  const orderedRooms = useMemo(() => {
+    const roomsArray = Array.isArray(rooms) ? rooms : [];
+    const uniqueRooms = Object.values(
+      roomsArray.reduce((acc, room) => {
+        if (room && !acc[room.type]) acc[room.type] = room;
+        return acc;
+      }, {})
+    );
+    const order = { SINGLE: 1, DOUBLE: 2, DELUXE: 3, SUITE: 4 };
+    return uniqueRooms.sort(
+      (a, b) => (order[a.type] || 99) - (order[b.type] || 99)
+    );
+  }, [rooms]);
 
   if (loading)
     return (
@@ -181,13 +182,11 @@ function Rooms() {
                   transition: "transform 0.3s ease-out",
                 }}
               >
-                <motion.img
+                <LazyImage
                   src={getRoomImage(room)}
                   alt={room.type}
+                  placeholder={fallbackByType[room.type] || photo1}
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  onError={(e) =>
-                    (e.currentTarget.src = fallbackByType[room.type] || photo1)
-                  }
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 <div className="absolute bottom-4 left-4 text-white text-xl font-semibold tracking-wider">
@@ -244,7 +243,7 @@ function Rooms() {
           );
         })}
 
-        {roomsArray.length === 0 && !loading && (
+        {orderedRooms.length === 0 && !loading && (
           <div className="text-center py-8 text-gray-500 text-lg">
             No rooms found.
           </div>

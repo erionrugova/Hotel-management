@@ -277,8 +277,38 @@ class ApiService {
     });
   }
 
+  changePassword(id, currentPassword, newPassword) {
+    return this.request(`/users/${id}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
   deleteUser(id) {
     return this.request(`/users/${id}`, { method: "DELETE" });
+  }
+
+  // Settings
+  getHotelSettings() {
+    return this.request("/settings/hotel");
+  }
+
+  getHotelSettingsPublic() {
+    // Public endpoint - no auth required
+    const url = `${this.baseURL}/settings/hotel/public`;
+    return fetch(url).then((res) => {
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      return res.json();
+    });
+  }
+
+  updateHotelSettings(settings) {
+    return this.request("/settings/hotel", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
   }
 
   // rooms
@@ -317,6 +347,10 @@ class ApiService {
 
   deleteRoom(id) {
     return this.request(`/rooms/${id}`, { method: "DELETE" });
+  }
+
+  deleteRoomType(type) {
+    return this.request(`/rooms/type/${type}`, { method: "DELETE" });
   }
 
   // bookings

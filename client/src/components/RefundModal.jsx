@@ -3,16 +3,24 @@ import moment from "moment-timezone";
 
 moment.tz.setDefault("Europe/Belgrade");
 
-function RefundModal({ isOpen, onClose, onConfirm, booking, refundInfo, onRefundCalculated }) {
+function RefundModal({ isOpen, onClose, onConfirm, booking, refundInfo, onRefundCalculated, isCancellation = false }) {
   const [earlyCheckoutDate, setEarlyCheckoutDate] = useState(
     moment.tz("Europe/Belgrade").format("YYYY-MM-DD")
   );
   const [calculatedRefund, setCalculatedRefund] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Calculate refund when date changes - must be before early return
+  // Reset state when modal opens/closes
   useEffect(() => {
-    if (!isOpen || !booking) {
+    if (!isOpen) {
+      setEarlyCheckoutDate(moment.tz("Europe/Belgrade").format("YYYY-MM-DD"));
+      setCalculatedRefund(null);
+    }
+  }, [isOpen]);
+
+  // Calculate refund when date changes - only for early check-out
+  useEffect(() => {
+    if (!isOpen || !booking || isCancellation) {
       setCalculatedRefund(null);
       return;
     }
@@ -47,119 +55,166 @@ function RefundModal({ isOpen, onClose, onConfirm, booking, refundInfo, onRefund
     
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earlyCheckoutDate, booking, isOpen]);
+  }, [earlyCheckoutDate, booking, isOpen, isCancellation]);
 
   if (!isOpen) return null;
 
   const originalEndDate = moment.tz(booking?.endDate, "Europe/Belgrade").startOf("day");
+  const checkInDate = moment.tz(booking?.startDate, "Europe/Belgrade").startOf("day");
+  const today = moment.tz("Europe/Belgrade").startOf("day");
+  const daysUntilCheckIn = checkInDate.diff(today, "days");
+  
   const selectedDate = moment.tz(earlyCheckoutDate, "Europe/Belgrade").startOf("day");
-  const isEarlyCheckout = selectedDate.isBefore(originalEndDate, "day");
+  const isEarlyCheckout = !isCancellation && selectedDate.isBefore(originalEndDate, "day");
   const unusedNights = isEarlyCheckout
     ? originalEndDate.diff(selectedDate, "days")
     : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Early Check-Out & Refund</h2>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50">
+      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 w-full max-w-md border border-slate-800">
+        <h2 className="text-xl font-semibold mb-4 text-white">
+          {isCancellation ? "Cancel Booking & Refund" : "Early Check-Out & Refund"}
+        </h2>
 
         {booking && (
-          <div className="mb-4 space-y-2 text-sm">
+          <div className="mb-4 space-y-2 text-sm text-slate-300">
             <p>
-              <span className="font-medium">Guest:</span> {booking.customerFirstName}{" "}
+              <span className="font-medium text-slate-400">Guest:</span> {booking.customerFirstName}{" "}
               {booking.customerLastName}
             </p>
             <p>
-              <span className="font-medium">Room:</span> {booking.room?.roomNumber || "N/A"}
+              <span className="font-medium text-slate-400">Room:</span> {booking.room?.roomNumber || "N/A"}
             </p>
+            {isCancellation ? (
+              <>
+                <p>
+                  <span className="font-medium text-slate-400">Check-in Date:</span>{" "}
+                  {checkInDate.format("MMM D, YYYY")}
+                </p>
+                <p>
+                  <span className="font-medium text-slate-400">Days until check-in:</span> {daysUntilCheckIn}
+                </p>
+              </>
+            ) : (
+              <p>
+                <span className="font-medium text-slate-400">Original Check-out:</span>{" "}
+                {originalEndDate.format("MMM D, YYYY")}
+              </p>
+            )}
             <p>
-              <span className="font-medium">Original Check-out:</span>{" "}
-              {originalEndDate.format("MMM D, YYYY")}
-            </p>
-            <p>
-              <span className="font-medium">Original Price:</span> $
+              <span className="font-medium text-slate-400">Original Price:</span> $
               {parseFloat(booking.finalPrice || 0).toFixed(2)}
             </p>
           </div>
         )}
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Actual Check-out Date
-          </label>
-          <input
-            type="date"
-            value={earlyCheckoutDate}
-            onChange={(e) => setEarlyCheckoutDate(e.target.value)}
-            max={originalEndDate.format("YYYY-MM-DD")}
-            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {isCancellation ? (
+          <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+            <h3 className="font-semibold mb-2 text-slate-200">Cancellation Refund Policy</h3>
+            <div className="space-y-2 text-sm text-slate-300">
+              <p>
+                Refund will be calculated based on the room's cancellation policy:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-xs text-slate-400 ml-2">
+                <li><strong>Non-refundable:</strong> No refund</li>
+                <li><strong>Strict:</strong> Refund only if cancelled 7+ days before check-in</li>
+                <li><strong>Flexible:</strong> Full refund always available</li>
+              </ul>
+              <p className="text-xs text-slate-500 mt-2">
+                Final refund amount will be calculated when you confirm cancellation.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-slate-400 mb-1">
+              Actual Check-out Date
+            </label>
+            <input
+              type="date"
+              value={earlyCheckoutDate}
+              onChange={(e) => setEarlyCheckoutDate(e.target.value)}
+              max={originalEndDate.format("YYYY-MM-DD")}
+              className="w-full bg-slate-800 border border-slate-700 text-white px-3 py-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            />
+          </div>
+        )}
 
         {isEarlyCheckout && (
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
-            <h3 className="font-semibold mb-2">Refund Estimate</h3>
+          <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+            <h3 className="font-semibold mb-2 text-slate-200">Refund Estimate</h3>
             {loading ? (
-              <p className="text-sm text-gray-600">Calculating...</p>
+              <p className="text-sm text-slate-500 animate-pulse">Calculating...</p>
             ) : calculatedRefund ? (
               <div className="space-y-1 text-sm">
-                <p>
-                  <span className="font-medium">Unused Nights:</span> {unusedNights}
+                <p className="text-slate-300">
+                  <span className="font-medium text-slate-400">Unused Nights:</span> {unusedNights}
                 </p>
-                <p className="text-blue-600">
-                  <span className="font-medium">Estimated Refund:</span> $
+                <p className="text-green-400 font-semibold">
+                  <span className="font-medium text-green-500/80">Estimated Refund:</span> $
                   {calculatedRefund.estimatedRefund.toFixed(2)}
                 </p>
-                <p className="text-gray-600 text-xs mt-2">
+                <p className="text-slate-500 text-xs mt-2 italic">
                   {calculatedRefund.note}
                 </p>
-                <p className="text-gray-500 text-xs mt-1">
-                  Final amount depends on room refund policy (Flexible/Strict/Non-refundable)
+                <p className="text-slate-500 text-xs mt-1">
+                  Final amount depends on room refund policy
                 </p>
               </div>
             ) : (
-              <p className="text-sm text-gray-600">Select a check-out date to see refund estimate</p>
+              <p className="text-sm text-slate-500">Select a check-out date to see refund estimate</p>
             )}
           </div>
         )}
 
-        {refundInfo && isEarlyCheckout && (
-          <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-            <h3 className="font-semibold mb-2 text-green-800">Final Refund Calculation</h3>
+        {refundInfo && (isCancellation || isEarlyCheckout) && (
+          <div className="mb-4 p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+            <h3 className="font-semibold mb-2 text-emerald-400">Final Refund Calculation</h3>
             <div className="space-y-1 text-sm">
-              <p>
-                <span className="font-medium">Policy:</span> {refundInfo.policy || "N/A"}
+              <p className="text-slate-300">
+                <span className="font-medium text-slate-400">Policy:</span> {refundInfo.policy || "N/A"}
               </p>
-              <p>
-                <span className="font-medium">Unused Nights:</span> {refundInfo.unusedNights || unusedNights}
-              </p>
-              <p className={refundInfo.refundable ? "text-green-600 font-semibold" : "text-red-600"}>
+              {isCancellation ? (
+                <p className="text-slate-300">
+                  <span className="font-medium text-slate-400">Days until check-in:</span> {refundInfo.daysUntilCheckIn || daysUntilCheckIn}
+                </p>
+              ) : (
+                <p className="text-slate-300">
+                  <span className="font-medium text-slate-400">Unused Nights:</span> {refundInfo.unusedNights || unusedNights}
+                </p>
+              )}
+              <p className={refundInfo.refundable ? "text-emerald-400 font-semibold" : "text-rose-400"}>
                 <span className="font-medium">Refund Amount:</span> $
                 {refundInfo.refundAmount?.toFixed(2) || "0.00"}
               </p>
-              <p className="text-gray-600 text-xs mt-2">{refundInfo.reason}</p>
+              <p className="text-slate-400 text-xs mt-2">{refundInfo.reason}</p>
             </div>
           </div>
         )}
 
-        {!isEarlyCheckout && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+        {!isCancellation && !isEarlyCheckout && (
+          <div className="mb-4 p-3 bg-indigo-500/10 rounded-lg text-sm text-indigo-300 border border-indigo-500/20">
             This is a normal check-out. No refund will be issued.
           </div>
         )}
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+            className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors border border-slate-700"
           >
             Cancel
           </button>
           <button
-            onClick={() => onConfirm(earlyCheckoutDate)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+            onClick={() => onConfirm(isCancellation ? null : earlyCheckoutDate)}
+            className={`px-4 py-2 rounded-lg text-white transition-colors shadow-lg font-medium ${
+              isCancellation 
+                ? "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20"
+            }`}
           >
-            Confirm Check-Out
+            {isCancellation ? "Confirm Cancellation" : "Confirm Check-Out"}
           </button>
         </div>
       </div>

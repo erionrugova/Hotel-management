@@ -54,17 +54,17 @@ function FrontDesk() {
                 id: r.id,
                 title: `Room ${r.roomNumber}`,
                 type: r.type,
-              }))
+              })),
           );
         } else {
           console.error("Failed to fetch rooms:", roomsResult.reason);
         }
 
         if (bookingsResult.status === "fulfilled") {
-          // Only show CONFIRMED bookings in Front Desk calendar
+          // Show CONFIRMED bookings in calendar, and include COMPLETED for checked-out list
           setItems(
             bookingsResult.value
-              .filter((b) => b.status === "CONFIRMED")
+              .filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED")
               .map((b) => ({
                 id: b.id,
                 group: b.roomId,
@@ -84,7 +84,7 @@ function FrontDesk() {
                   : { roomNumber: "Unknown", type: "—" },
                 status: b.status,
                 paymentStatus: b.paymentStatus,
-              }))
+              })),
           );
         } else {
           console.error("Failed to fetch bookings:", bookingsResult.reason);
@@ -122,8 +122,8 @@ function FrontDesk() {
         if (!saved || !saved.id) {
           throw new Error("Booking update failed - no data returned");
         }
-        // Only update if booking is CONFIRMED (to show in calendar)
-        if (saved.status === "CONFIRMED") {
+        // Only update if booking is CONFIRMED or COMPLETED (to show in calendar/list)
+        if (saved.status === "CONFIRMED" || saved.status === "COMPLETED") {
           setItems((prev) =>
             prev.map((i) =>
               i.id === editing.id
@@ -141,11 +141,11 @@ function FrontDesk() {
                     status: saved.status,
                     dealId: saved.dealId, // Ensure dealId is updated
                   }
-                : i
-            )
+                : i,
+            ),
           );
         } else {
-          // If status changed from CONFIRMED to something else, remove from calendar
+          // If status changed from CONFIRMED/COMPLETED to something else, remove from calendar
           setItems((prev) => prev.filter((i) => i.id !== editing.id));
         }
       } else {
@@ -188,7 +188,7 @@ function FrontDesk() {
         apiService.getRooms(),
         apiService.getBookings(),
       ]);
-      
+
       if (results[0].status === "fulfilled") {
         setGroups(
           results[0].value
@@ -197,14 +197,14 @@ function FrontDesk() {
               id: r.id,
               title: `Room ${r.roomNumber}`,
               type: r.type,
-            }))
+            })),
         );
       }
-      
+
       if (results[1].status === "fulfilled") {
         setItems(
           results[1].value
-            .filter((b) => b.status === "CONFIRMED")
+            .filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED")
             .map((b) => ({
               id: b.id,
               group: b.roomId,
@@ -224,7 +224,7 @@ function FrontDesk() {
                 : { roomNumber: "Unknown", type: "—" },
               status: b.status,
               paymentStatus: b.paymentStatus,
-            }))
+            })),
         );
       }
     } catch (err) {
@@ -235,7 +235,7 @@ function FrontDesk() {
         "Failed to save booking. Please try again.";
       const nextAvailable = err?.response?.data?.nextAvailable;
       setError(
-        nextAvailable ? `${errorMessage} (${nextAvailable})` : errorMessage
+        nextAvailable ? `${errorMessage} (${nextAvailable})` : errorMessage,
       );
       // Don't close modal on error - keep it open so user can see the error and try again
       // setIsModalOpen(false); // Removed - keep modal open on error
@@ -312,30 +312,31 @@ function FrontDesk() {
     setCurrentDate(moment.tz("Europe/Belgrade"));
   };
 
+
   return (
-    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen max-w-full overflow-x-hidden">
+    <div className="p-4 sm:p-6 bg-slate-950 min-h-screen max-w-full overflow-x-hidden text-slate-100">
       {/* Fixed Header - Always visible */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4 sticky top-0 z-20">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-4 mb-4 sticky top-0 z-20">
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-sm">
             {error}
           </div>
         )}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <h2 className="text-2xl font-semibold">Front Desk</h2>
+          <h2 className="text-2xl font-semibold text-white">Front Desk</h2>
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <label className="flex items-center text-sm text-gray-700 cursor-pointer">
+            <label className="flex items-center text-sm text-slate-300 cursor-pointer">
               <input
                 type="checkbox"
                 checked={showActiveOnly}
                 onChange={() => setShowActiveOnly((prev) => !prev)}
-                className="mr-2"
+                className="mr-2 accent-indigo-600"
               />
               Show only active bookings
             </label>
             <button
               onClick={openCreate}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium whitespace-nowrap"
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors font-medium whitespace-nowrap shadow-lg shadow-indigo-500/20"
             >
               + Create Booking
             </button>
@@ -347,23 +348,23 @@ function FrontDesk() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigateDate(-1)}
-              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded transition"
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors text-slate-300"
             >
               ←
             </button>
             <button
               onClick={goToToday}
-              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded transition text-sm"
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors text-sm text-slate-300"
             >
               Today
             </button>
             <button
               onClick={() => navigateDate(1)}
-              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded transition"
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors text-slate-300"
             >
               →
             </button>
-            <h3 className="ml-2 text-base sm:text-lg font-semibold">
+            <h3 className="ml-2 text-base sm:text-lg font-semibold text-white">
               {days[0]?.format("MMM D")} -{" "}
               {days[days.length - 1]?.format("MMM D, YYYY")}
             </h3>
@@ -371,10 +372,10 @@ function FrontDesk() {
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode("week")}
-              className={`px-3 py-1 rounded transition text-sm ${
+              className={`px-3 py-1 rounded transition-colors text-sm ${
                 viewMode === "week"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 hover:bg-gray-300"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
               }`}
             >
               Week
@@ -385,42 +386,46 @@ function FrontDesk() {
 
       {/* Legend - Compact */}
       <div className="flex gap-2 mb-4 text-xs sm:text-sm flex-wrap">
-        <span className="px-2 py-1 rounded-lg bg-yellow-100 text-yellow-700 font-medium">
+        <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
           Upcoming
         </span>
-        <span className="px-2 py-1 rounded-lg bg-green-100 text-green-700 font-medium">
+        <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
           Active
         </span>
-        <span className="px-2 py-1 rounded-lg bg-red-100 text-red-700 font-medium">
+        <span className="px-2 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 font-medium">
           Due Out Today
         </span>
-        <span className="px-2 py-1 rounded-lg bg-blue-100 text-blue-700 font-medium">
+        <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
           Checked Out
         </span>
       </div>
 
       {/* Compact Calendar Grid - Fits in viewport */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg overflow-hidden mb-6">
         <div className="overflow-y-auto max-h-[500px]">
           {/* Header with days - Fixed width columns */}
-          <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] border-b bg-gray-50 sticky top-0 z-10">
-            <div className="p-2 font-semibold border-r text-sm">Room</div>
+          <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
+            <div className="p-2 font-semibold border-r border-slate-800 text-sm text-slate-300">
+              Room
+            </div>
             {days.map((dayDate, idx) => {
               const isToday = dayDate.isSame(
                 moment.tz("Europe/Belgrade"),
-                "day"
+                "day",
               );
               return (
                 <div
                   key={idx}
-                  className={`p-2 text-center border-r font-semibold text-xs sm:text-sm ${
-                    isToday ? "bg-blue-100" : ""
+                  className={`p-2 text-center border-r border-slate-800 font-semibold text-xs sm:text-sm ${
+                    isToday ? "bg-indigo-500/10" : ""
                   }`}
                 >
-                  <div className="text-gray-500">{weekDays[dayDate.day()]}</div>
+                  <div className="text-slate-400">
+                    {weekDays[dayDate.day()]}
+                  </div>
                   <div
                     className={`text-sm sm:text-base ${
-                      isToday ? "text-blue-600 font-bold" : ""
+                      isToday ? "text-indigo-400 font-bold" : "text-slate-200"
                     }`}
                   >
                     {dayDate.format("D")}
@@ -433,24 +438,26 @@ function FrontDesk() {
           {/* Room rows - Scrollable vertically only */}
           {groups.map((room) => {
             const roomBookings = filteredItems.filter(
-              (item) => item.group === room.id
+              (item) => item.group === room.id,
             );
 
             return (
               <div
                 key={room.id}
-                className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] border-b hover:bg-gray-50 transition"
+                className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
               >
-                <div className="p-2 border-r font-medium bg-gray-50 sticky left-0 z-5 text-xs sm:text-sm">
-                  <div className="font-semibold truncate">{room.title}</div>
-                  <div className="text-gray-500 text-xs truncate">
+                <div className="p-2 border-r border-slate-800 font-medium bg-slate-900 sticky left-0 z-5 text-xs sm:text-sm">
+                  <div className="font-semibold truncate text-slate-200">
+                    {room.title}
+                  </div>
+                  <div className="text-slate-500 text-xs truncate">
                     {room.type}
                   </div>
                 </div>
                 {days.map((day, dayIdx) => {
                   const isToday = day.isSame(
                     moment.tz("Europe/Belgrade"),
-                    "day"
+                    "day",
                   );
 
                   // Get bookings that start on this day
@@ -462,8 +469,8 @@ function FrontDesk() {
                   return (
                     <div
                       key={dayIdx}
-                      className={`p-1 border-r min-h-[60px] sm:min-h-[80px] relative ${
-                        isToday ? "bg-blue-50" : ""
+                      className={`p-1 border-r border-slate-800 min-h-[60px] sm:min-h-[80px] relative ${
+                        isToday ? "bg-indigo-500/5" : ""
                       }`}
                     >
                       {dayStartBookings.map((booking, bookingIdx) => {
@@ -475,7 +482,7 @@ function FrontDesk() {
                         const bgColor = statusColor(
                           booking.checkIn,
                           booking.checkOut,
-                          booking.status
+                          booking.status,
                         );
 
                         // Calculate width based on remaining days
@@ -485,11 +492,11 @@ function FrontDesk() {
                           <div
                             key={booking.id}
                             onClick={() => openEdit(booking.id)}
-                            className="cursor-pointer hover:opacity-80 transition rounded mb-1 text-xs"
+                            className="cursor-pointer hover:brightness-110 transition rounded mb-1 text-xs shadow-sm"
                             style={{
                               backgroundColor: bgColor,
-                              color: "#fff",
-                              borderRadius: "3px",
+                              color: "#fff", // White text always looks good on these colored blocks
+                              borderRadius: "4px",
                               padding: "2px 4px",
                               fontSize: "0.7rem",
                               fontWeight: "500",
@@ -529,8 +536,8 @@ function FrontDesk() {
       </div>
 
       {/* Bookings List - Compact */}
-      <div className="bg-white shadow-md rounded-lg p-4 overflow-x-auto">
-        <h3 className="text-lg font-semibold mb-4">Bookings List</h3>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-4 overflow-x-auto">
+        <h3 className="text-lg font-semibold text-white mb-4">Bookings List</h3>
 
         {["Active", "Upcoming", "Checked Out"].map((status) => {
           const filteredByStatus = sortedItems.filter((b) => {
@@ -558,10 +565,10 @@ function FrontDesk() {
 
           const colorClass =
             status === "Active"
-              ? "bg-green-100 text-green-800"
+              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
               : status === "Upcoming"
-              ? "bg-yellow-100 text-yellow-800"
-              : "bg-blue-100 text-blue-800";
+              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              : "bg-blue-500/10 text-blue-400 border border-blue-500/20";
 
           return (
             <div key={status} className="mb-6">
@@ -573,15 +580,31 @@ function FrontDesk() {
               <div className="overflow-x-auto">
                 <table className="table-auto border-collapse text-sm w-full mt-2 min-w-[700px]">
                   <thead>
-                    <tr className="bg-gray-100 text-left">
-                      <th className="p-2 border text-xs">Guest</th>
-                      <th className="p-2 border text-xs">Email</th>
-                      <th className="p-2 border text-xs">Room</th>
-                      <th className="p-2 border text-xs">Check-In</th>
-                      <th className="p-2 border text-xs">Check-Out</th>
-                      <th className="p-2 border text-xs">Status</th>
-                      <th className="p-2 border text-xs">Payment</th>
-                      <th className="p-2 border text-xs">Actions</th>
+                    <tr className="bg-slate-800 text-left border border-slate-700">
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Guest
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Email
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Room
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Check-In
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Check-Out
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Status
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Payment
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -604,62 +627,62 @@ function FrontDesk() {
                       return (
                         <tr
                           key={b.id}
-                          className={`border-b hover:bg-gray-50 transition ${
+                          className={`border-b border-slate-700 hover:bg-slate-800/50 transition ${
                             isCheckedOut ? "opacity-70" : ""
                           }`}
                         >
-                          <td className="p-2 border whitespace-nowrap text-xs">
+                          <td className="p-2 border border-slate-700 whitespace-nowrap text-xs text-slate-200">
                             {b.customerFirstName} {b.customerLastName}
                           </td>
-                          <td className="p-2 border whitespace-nowrap text-xs">
+                          <td className="p-2 border border-slate-700 whitespace-nowrap text-xs text-slate-300">
                             {b.customerEmail}
                           </td>
-                          <td className="p-2 border text-xs">
+                          <td className="p-2 border border-slate-700 text-xs text-slate-300">
                             {b.room && typeof b.room === "object"
                               ? `${b.room.roomNumber || "?"} (${
                                   b.room.type || "?"
                                 })`
                               : b.room || "—"}
                           </td>
-                          <td className="p-2 border whitespace-nowrap text-xs">
+                          <td className="p-2 border border-slate-700 whitespace-nowrap text-xs text-slate-300">
                             {moment
                               .tz(b.checkIn, "Europe/Belgrade")
                               .format("MMM D, YYYY")}
                           </td>
-                          <td className="p-2 border whitespace-nowrap text-xs">
+                          <td className="p-2 border border-slate-700 whitespace-nowrap text-xs text-slate-300">
                             {moment
                               .tz(b.checkOut, "Europe/Belgrade")
                               .format("MMM D, YYYY")}
                           </td>
-                          <td className="p-2 border">
+                          <td className="p-2 border border-slate-700">
                             {isCheckedOut ? (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                              <span className="px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-xs font-medium">
                                 Checked Out
                               </span>
                             ) : isActive ? (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                              <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
                                 Active
                               </span>
                             ) : (
-                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                              <span className="px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-medium">
                                 Upcoming
                               </span>
                             )}
                           </td>
-                          <td className="p-2 border text-xs">
+                          <td className="p-2 border border-slate-700 text-xs text-slate-300">
                             {b.paymentType || "—"}
                           </td>
-                          <td className="p-2 border">
+                          <td className="p-2 border border-slate-700">
                             <div className="flex gap-1">
                               <button
                                 onClick={() => openEdit(b.id)}
-                                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition"
+                                className="px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => handleDelete(b.id)}
-                                className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
+                                className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
                               >
                                 Delete
                               </button>

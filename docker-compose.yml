@@ -20,9 +20,8 @@ services:
       PORT: 3000
       NODE_ENV: development
       ENABLE_RATE_LIMIT: "false"
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}
+    env_file:
+      - ./server/.env
     ports:
       - "3000:3000"
     network_mode: bridge

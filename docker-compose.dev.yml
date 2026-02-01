@@ -32,9 +32,8 @@ services:
       JWT_EXPIRES_IN: 7d
       PORT: 3000
       NODE_ENV: development
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3002/api/auth/google/callback}
+    env_file:
+      - ./server/.env
     ports:
       - "3002:3000" # Docker server on 3002, npm dev on 3000, frontend on 3001
     networks:
