@@ -298,12 +298,12 @@ function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-6 md:space-y-0">
             <div className="text-gray-500 text-sm font-light tracking-wide">
               <p>
-                © {new Date().getFullYear()}{" "}
+        © {new Date().getFullYear()}{" "}
                 <span className="text-[#B89B5E] font-semibold bg-gradient-to-r from-[#B89B5E] to-[#D4B96F] bg-clip-text text-transparent">
                   Four Seasons Hotel
                 </span>
-                . All rights reserved.
-              </p>
+        . All rights reserved.
+      </p>
             </div>
             <div className="flex flex-wrap justify-center md:justify-end gap-8 text-sm">
               {["Privacy Policy", "Terms of Service", "Support"].map((link, index) => (
