@@ -198,8 +198,8 @@ function Rate() {
   );
 
   return (
-    <div className="p-10 min-h-screen bg-slate-950 text-slate-100">
-      <h2 className="text-3xl font-semibold mb-8 text-white">Rates Management</h2>
+    <div className="p-4 sm:p-6 lg:p-10 min-h-screen bg-slate-950 text-slate-100">
+      <h2 className="text-2xl sm:text-3xl font-semibold mb-6 sm:mb-8 text-white">Rates Management</h2>
 
       <div className="flex justify-end mb-6 space-x-2">
         {(isAdmin() || isManager()) && (
@@ -214,7 +214,7 @@ function Rate() {
 
       <div className="bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[700px]">
             <thead className="bg-slate-800 text-slate-200">
               <tr>
                 <th className="p-4 font-semibold">#</th>
@@ -229,8 +229,8 @@ function Rate() {
             <tbody className="divide-y divide-slate-800">
               {rates.map((r, index) => (
                 <tr key={r.id} className="hover:bg-slate-800/50 transition-colors">
-                  <td className="p-4 text-slate-400">{index + 1}</td>
-                  <td className="p-4">
+                  <td className="p-3 sm:p-4 text-slate-400 text-xs sm:text-sm">{index + 1}</td>
+                  <td className="p-3 sm:p-4 text-xs sm:text-sm">
                     {r.room ? (
                       <span className="font-medium text-slate-200">
                         {r.room.type}
@@ -239,7 +239,7 @@ function Rate() {
                       <span className="text-slate-500 italic">Room not linked</span>
                     )}
                   </td>
-                  <td className="p-4">
+                  <td className="p-3 sm:p-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       r.policy === 'FLEXIBLE' ? 'bg-green-500/10 text-green-400' :
                       r.policy === 'STRICT' ? 'bg-orange-500/10 text-orange-400' :
@@ -248,33 +248,35 @@ function Rate() {
                       {r.policy}
                     </span>
                   </td>
-                  <td className="p-4 font-medium text-slate-200">${r.rate}</td>
-                  <td className="p-4">
+                  <td className="p-3 sm:p-4 font-medium text-slate-200 text-xs sm:text-sm">${r.rate}</td>
+                  <td className="p-3 sm:p-4 text-xs sm:text-sm">
                     {r.deal ? (
-                      <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded text-sm">
+                      <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded text-xs">
                         {r.deal.name} ({r.deal.discount}%)
                       </span>
                     ) : (
                       <span className="text-slate-600">—</span>
                     )}
                   </td>
-                  <td className="p-4 font-medium text-green-400">
+                  <td className="p-3 sm:p-4 font-medium text-green-400 text-xs sm:text-sm">
                     {r.dealPrice ? `$${r.dealPrice}` : <span className="text-slate-600">—</span>}
                   </td>
                   {(isAdmin() || isManager()) && (
-                    <td className="p-4 space-x-2">
-                      <button
-                        onClick={() => handleEditClick(r)}
-                        className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg text-sm transition-colors border border-amber-500/20"
-                      >
-                        Update
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRate(r.id)}
-                        className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm transition-colors border border-red-500/20"
-                      >
-                        Delete
-                      </button>
+                    <td className="p-3 sm:p-4">
+                      <div className="flex flex-wrap gap-1 sm:gap-2">
+                        <button
+                          onClick={() => handleEditClick(r)}
+                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg text-xs transition-colors border border-amber-500/20"
+                        >
+                          Update
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRate(r.id)}
+                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-colors border border-red-500/20"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -292,8 +294,8 @@ function Rate() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
-          <div className="bg-slate-900 p-8 rounded-xl shadow-2xl w-96 space-y-6 border border-slate-800">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
+          <div className="bg-slate-900 p-4 sm:p-8 rounded-xl shadow-2xl w-full max-w-md space-y-4 sm:space-y-6 border border-slate-800">
             <h3 className="text-xl font-semibold text-white">Add Rate</h3>
 
             <div className="space-y-4">
@@ -384,8 +386,8 @@ function Rate() {
       )}
 
       {editModal && editForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
-          <div className="bg-slate-900 p-8 rounded-xl shadow-2xl w-96 space-y-6 border border-slate-800">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
+          <div className="bg-slate-900 p-4 sm:p-8 rounded-xl shadow-2xl w-full max-w-md space-y-4 sm:space-y-6 border border-slate-800 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-white">Edit Rate</h3>
 
             <div className="space-y-4">

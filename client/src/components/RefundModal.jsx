@@ -110,21 +110,59 @@ function RefundModal({ isOpen, onClose, onConfirm, booking, refundInfo, onRefund
         )}
 
         {isCancellation ? (
-          <div className="mb-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h3 className="font-semibold mb-2 text-slate-200">Cancellation Refund Policy</h3>
-            <div className="space-y-2 text-sm text-slate-300">
-              <p>
-                Refund will be calculated based on the room's cancellation policy:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-xs text-slate-400 ml-2">
-                <li><strong>Non-refundable:</strong> No refund</li>
-                <li><strong>Strict:</strong> Refund only if cancelled 7+ days before check-in</li>
-                <li><strong>Flexible:</strong> Full refund always available</li>
-              </ul>
-              <p className="text-xs text-slate-500 mt-2">
-                Final refund amount will be calculated when you confirm cancellation.
-              </p>
-            </div>
+          <div className="mb-4 space-y-3">
+            {/* Show refund eligibility BEFORE confirmation */}
+            {refundInfo && !refundInfo.isFinal && (
+              <div className={`p-4 rounded-lg border ${
+                refundInfo.refundable 
+                  ? "bg-emerald-500/10 border-emerald-500/20" 
+                  : "bg-rose-500/10 border-rose-500/20"
+              }`}>
+                <h3 className={`font-semibold mb-2 ${
+                  refundInfo.refundable ? "text-emerald-400" : "text-rose-400"
+                }`}>
+                  {refundInfo.refundable ? "✓ Payment Will Be Refunded" : "✗ Payment Will NOT Be Refunded"}
+                </h3>
+                <div className="space-y-1 text-sm">
+                  <p className="text-slate-300">
+                    <span className="font-medium text-slate-400">Policy:</span> {refundInfo.policy || "N/A"}
+                  </p>
+                  <p className="text-slate-300">
+                    <span className="font-medium text-slate-400">Days until check-in:</span> {refundInfo.daysUntilCheckIn || 0}
+                  </p>
+                  <p className={refundInfo.refundable ? "text-emerald-400 font-semibold" : "text-rose-400"}>
+                    <span className="font-medium">Estimated Refund:</span> $
+                    {refundInfo.estimatedRefund?.toFixed(2) || "0.00"}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-2">
+                    {refundInfo.refundMessage || "Refund eligibility based on cancellation policy"}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-1 italic">
+                    Final refund amount will be confirmed after cancellation.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Show general policy info if no refundInfo yet */}
+            {!refundInfo && (
+              <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-2 text-slate-200">Cancellation Refund Policy</h3>
+                <div className="space-y-2 text-sm text-slate-300">
+                  <p>
+                    Refund will be calculated based on the room's cancellation policy:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-xs text-slate-400 ml-2">
+                    <li><strong>Non-refundable:</strong> No refund</li>
+                    <li><strong>Strict:</strong> Refund only if cancelled 7+ days before check-in</li>
+                    <li><strong>Flexible:</strong> Full refund always available</li>
+                  </ul>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Refund eligibility will be calculated when you confirm cancellation.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mb-4">
@@ -168,7 +206,8 @@ function RefundModal({ isOpen, onClose, onConfirm, booking, refundInfo, onRefund
           </div>
         )}
 
-        {refundInfo && (isCancellation || isEarlyCheckout) && (
+        {/* Show final refund amount AFTER confirmation */}
+        {refundInfo && refundInfo.isFinal && (isCancellation || isEarlyCheckout) && (
           <div className="mb-4 p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
             <h3 className="font-semibold mb-2 text-emerald-400">Final Refund Calculation</h3>
             <div className="space-y-1 text-sm">
@@ -184,7 +223,7 @@ function RefundModal({ isOpen, onClose, onConfirm, booking, refundInfo, onRefund
                   <span className="font-medium text-slate-400">Unused Nights:</span> {refundInfo.unusedNights || unusedNights}
                 </p>
               )}
-              <p className={refundInfo.refundable ? "text-emerald-400 font-semibold" : "text-rose-400"}>
+              <p className={refundInfo.refundable && refundInfo.refundAmount > 0 ? "text-emerald-400 font-semibold text-lg" : "text-rose-400 font-semibold"}>
                 <span className="font-medium">Refund Amount:</span> $
                 {refundInfo.refundAmount?.toFixed(2) || "0.00"}
               </p>

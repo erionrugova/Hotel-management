@@ -20,6 +20,7 @@ const Signup = lazy(() => import("./Pages/Signup"));
 const ContactUs = lazy(() => import("./Pages/ContactUs"));
 const Rooms = lazy(() => import("./Pages/Rooms"));
 const RoomDetails = lazy(() => import("./Pages/RoomDetails"));
+const MyBookings = lazy(() => import("./Pages/MyBookings"));
 const LoginSuccess = lazy(() => import("./Pages/LoginSuccess"));
 
 const DashboardLayout = lazy(() => import("./Pages/Dashboard/DashboardLayout"));
@@ -71,6 +72,14 @@ function AppRoutes() {
           <Route path="rooms/:id" element={<RoomDetails />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<ContactUs />} />
+          <Route
+            path="my-bookings"
+            element={
+              <ProtectedRoute>
+                <MyBookings />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         <Route path="/login" element={<Login />} />

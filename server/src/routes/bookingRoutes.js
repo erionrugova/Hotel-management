@@ -104,14 +104,14 @@ router.get("/:id", async (req, res) => {
  * @swagger
  * /bookings:
  *   get:
- *     summary: Get all bookings (Admin/Manager only)
- *     description: Retrieves all bookings with related room, user, deal, and guest information. Returns bookings ordered by start date (newest first).
+ *     summary: Get bookings
+ *     description: Retrieves bookings with related room, user, deal, and guest information. Admin/Manager get all bookings, regular users get only their own bookings. Returns bookings ordered by start date (newest first).
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of all bookings
+ *         description: List of bookings (all bookings for Admin/Manager, user's own bookings for regular users)
  *         content:
  *           application/json:
  *             schema:
@@ -202,10 +202,15 @@ router.get("/:id", async (req, res) => {
 router.get(
   "/",
   authenticateToken,
-  authorize("ADMIN", "MANAGER"),
   async (req, res) => {
     try {
+      // If user is ADMIN or MANAGER, get all bookings
+      // Otherwise, get only the user's own bookings
+      const isAdminOrManager = req.user.role === "ADMIN" || req.user.role === "MANAGER";
+      const whereClause = isAdminOrManager ? {} : { userId: req.user.userId };
+
       const bookings = await prisma.booking.findMany({
+        where: whereClause,
         include: {
           room: {
             select: {
@@ -802,6 +807,13 @@ router.patch(
       const newRoomId = roomId ? parseInt(roomId, 10) : booking.roomId;
       const newStart = startDate ? new Date(startDate) : booking.startDate;
       const newEnd = endDate ? new Date(endDate) : booking.endDate;
+
+      // Validate that end date is after start date
+      if (newEnd <= newStart) {
+        return res
+          .status(400)
+          .json({ error: "End date must be after start date" });
+      }
 
       // Get the room for price calculation (use new room if changed, otherwise existing)
       const roomForPrice =

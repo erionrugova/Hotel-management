@@ -293,7 +293,7 @@ function Homepage() {
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             >
-              <div className="relative group overflow-hidden rounded-3xl shadow-2xl">
+              <Link to="/rooms" className="relative group overflow-hidden rounded-3xl shadow-2xl block">
                 <img
                   src={photoLeft1}
                   alt="Luxurious hotel room with elegant decor, premium furnishings, and stunning city view"
@@ -310,8 +310,8 @@ function Homepage() {
                     View Details
                   </motion.span>
                 </div>
-              </div>
-              <div className="relative group overflow-hidden rounded-3xl shadow-2xl">
+              </Link>
+              <Link to="/rooms" className="relative group overflow-hidden rounded-3xl shadow-2xl block">
                 <img
                   src={photoLeft2}
                   alt="Premium hotel suite featuring modern amenities, luxury furnishings, and sophisticated design"
@@ -328,7 +328,7 @@ function Homepage() {
                     View Details
                   </motion.span>
                 </div>
-              </div>
+              </Link>
             </motion.div>
           </div>
         </section>

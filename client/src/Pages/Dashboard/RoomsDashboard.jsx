@@ -452,9 +452,9 @@ function RoomsDashboard() {
     );
 
   return (
-    <div className="p-10 min-h-screen bg-slate-950">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-semibold text-white">
+    <div className="p-4 sm:p-6 lg:p-10 min-h-screen bg-slate-950">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+        <h2 className="text-2xl sm:text-3xl font-semibold text-white">
           Rooms Dashboard
         </h2>
         {(isAdmin() || isManager()) && (
@@ -484,7 +484,7 @@ function RoomsDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-10">
         <div className="lg:col-span-1 flex flex-col gap-6">
           {roomTypes.map((rt, index) => (
             <motion.div
@@ -883,13 +883,13 @@ function RoomsDashboard() {
       <AnimatePresence>
         {showAddModal && (
           <motion.div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-slate-900 rounded-xl shadow-2xl p-6 w-[420px] border border-slate-800"
+              className="bg-slate-900 rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md border border-slate-800 max-h-[90vh] overflow-y-auto"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1017,13 +1017,13 @@ function RoomsDashboard() {
       <AnimatePresence>
         {showEditModal && (
           <motion.div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-6 w-[420px]"
+              className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}

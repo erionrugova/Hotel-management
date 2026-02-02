@@ -1,10 +1,31 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUser } from "../../UserContext";
+import { FaUser, FaBook, FaSignOutAlt, FaChevronDown } from "react-icons/fa";
+import { useState, useRef, useEffect } from "react";
 
 function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAdmin, isManager } = useUser();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showUserMenu]);
 
   const publicNavItems = [
     { name: "Home", path: "/" },
@@ -44,42 +65,87 @@ function Header() {
             ))}
           </nav>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             {user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">
-                  Welcome, {user.username}
-                </span>
-
-                {isAdmin() && (
-                  <Link
-                    to="/dashboard"
-                    className="bg-[#B89B5E] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#a0854d] transition-colors"
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
-
-                {isManager() && (
-                  <Link
-                    to="/dashboard"
-                    className="bg-[#B89B5E] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#a0854d] transition-colors"
-                  >
-                    Manager Dashboard
-                  </Link>
-                )}
-
+              <div className="flex items-center space-x-3 relative" ref={menuRef}>
+                {/* User Profile Button */}
                 <button
-                  onClick={handleLogout}
-                  className="text-gray-700 hover:text-[#B89B5E] text-sm font-medium"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gradient-to-r from-[#F8F6F1] to-[#F0EDE5] hover:from-[#F0EDE5] hover:to-[#E8E4D9] transition-all duration-200 border border-[#E0DCCF] shadow-sm"
                 >
-                  Logout
+                  <div className="w-8 h-8 rounded-full bg-[#B89B5E] flex items-center justify-center text-white font-semibold text-sm">
+                    <FaUser className="text-xs" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-800 hidden sm:inline">
+                    {user.username}
+                  </span>
+                  <FaChevronDown className={`text-xs text-gray-600 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
                 </button>
+
+                {/* Dropdown Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 animate-[fadeIn_0.2s_ease-in-out_forwards]">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Account</p>
+                      <p className="text-sm font-medium text-gray-900 mt-1">{user.username}</p>
+                    </div>
+                    
+                    <div className="py-1">
+                      <Link
+                        to="/my-bookings"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#F8F6F1] hover:text-[#B89B5E] transition-colors group"
+                      >
+                        <FaBook className="text-[#B89B5E] group-hover:text-[#B89B5E] transition-colors" />
+                        <span className="font-medium">My Bookings</span>
+                      </Link>
+
+                      {isAdmin() && (
+                        <Link
+                          to="/dashboard"
+                          onClick={() => setShowUserMenu(false)}
+                          className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#F8F6F1] hover:text-[#B89B5E] transition-colors group"
+                        >
+                          <div className="w-4 h-4 rounded bg-[#B89B5E] flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">A</span>
+                          </div>
+                          <span className="font-medium">Admin Dashboard</span>
+                        </Link>
+                      )}
+
+                      {isManager() && (
+                        <Link
+                          to="/dashboard"
+                          onClick={() => setShowUserMenu(false)}
+                          className="flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#F8F6F1] hover:text-[#B89B5E] transition-colors group"
+                        >
+                          <div className="w-4 h-4 rounded bg-[#B89B5E] flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">M</span>
+                          </div>
+                          <span className="font-medium">Manager Dashboard</span>
+                        </Link>
+                      )}
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-1">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          handleLogout();
+                        }}
+                        className="flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors w-full group"
+                      >
+                        <FaSignOutAlt className="group-hover:translate-x-0.5 transition-transform" />
+                        <span className="font-medium">Logout</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <Link
                 to="/login"
-                className="bg-[#B89B5E] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#a0854d] transition-colors"
+                className="bg-[#B89B5E] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[#a0854d] transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 Login
               </Link>

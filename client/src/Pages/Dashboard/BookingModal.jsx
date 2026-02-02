@@ -107,14 +107,25 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate dates
+    if (form.startDate && form.endDate) {
+      const start = moment(form.startDate);
+      const end = moment(form.endDate);
+      if (end.isSameOrBefore(start)) {
+        alert("Check-out date must be after check-in date.");
+        return;
+      }
+    }
+    
     onSave(form);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-fadeIn text-slate-100">
+    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg animate-fadeIn text-slate-100 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold mb-4 text-white">
           {booking ? "Edit Booking" : "New Booking"}
         </h2>
@@ -157,7 +168,7 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 First Name
@@ -200,7 +211,7 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 Check-In
@@ -208,6 +219,7 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
               <input
                 type="date"
                 value={form.startDate}
+                min={moment().format("YYYY-MM-DD")}
                 onChange={(e) =>
                   setForm({ ...form, startDate: e.target.value })
                 }
@@ -222,12 +234,18 @@ function BookingModal({ isOpen, onClose, onSave, booking, groups }) {
               <input
                 type="date"
                 value={form.endDate}
+                min={form.startDate || moment().format("YYYY-MM-DD")}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                 required
                 className="bg-slate-800 border border-slate-700 text-white rounded px-2 py-1 w-full focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
           </div>
+          {form.startDate && form.endDate && moment(form.endDate).isSameOrBefore(moment(form.startDate)) && (
+            <div className="bg-red-900/30 text-red-400 border border-red-800 px-4 py-2 rounded text-sm">
+              Check-out date must be after check-in date.
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">

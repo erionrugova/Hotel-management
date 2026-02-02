@@ -3,21 +3,36 @@ import moment from "moment-timezone";
 import apiService from "../../services/api";
 import { Search, Filter, Receipt, RefreshCw } from "lucide-react";
 import { useUser } from "../../UserContext";
+import BookingModal from "./BookingModal";
 
 moment.tz.setDefault("Europe/Belgrade");
 
 function Invoices() {
-  const { refreshFlag } = useUser();
+  const { refreshFlag, triggerRefresh } = useUser();
   const [activeTab, setActiveTab] = useState("all"); // 'all' or 'refunds'
   const [bookings, setBookings] = useState([]);
   const [refunds, setRefunds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // 'all', 'active', 'non-active'
   const [searchTerm, setSearchTerm] = useState("");
+  const [bookingModal, setBookingModal] = useState({ isOpen: false, booking: null });
+  const [rooms, setRooms] = useState([]);
 
   useEffect(() => {
     fetchData();
   }, [refreshFlag]); // Refresh when global refresh flag changes
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const roomsData = await apiService.getRooms();
+        setRooms(roomsData.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber)));
+      } catch (err) {
+        console.error("Failed to fetch rooms:", err);
+      }
+    };
+    fetchRooms();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -25,15 +40,19 @@ function Invoices() {
       const allBookings = await apiService.getBookings();
       if (!Array.isArray(allBookings)) {
         console.warn("⚠️ Invalid bookings response");
+        setBookings([]);
+        setRefunds([]);
         setLoading(false);
         return;
       }
 
-      // Process for All Invoices
+      // Process for All Invoices - ensure we only show valid bookings
       setBookings(
-        allBookings.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-        ),
+        allBookings
+          .filter((b) => b !== null && b !== undefined) // Filter out any null/undefined bookings
+          .sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+          ),
       );
 
       // Process for Refunds (Cancelled bookings and Early check-outs)
@@ -160,10 +179,10 @@ function Invoices() {
   }
 
   return (
-    <div className="p-4 sm:p-10 min-h-screen bg-slate-950 text-slate-100">
-      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="p-4 sm:p-6 lg:p-10 min-h-screen bg-slate-950 text-slate-100">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-semibold mb-2 text-white">
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-white">
             Invoices & Refunds
           </h2>
           <p className="text-slate-400">
@@ -203,40 +222,87 @@ function Invoices() {
       {activeTab === "all" ? (
         <div className="bg-slate-900 rounded-xl shadow-xl border border-slate-800 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[800px]">
               <thead className="bg-slate-800 text-slate-200">
                 <tr>
-                  <th className="p-4 font-semibold">Booking ID</th>
-                  <th className="p-4 font-semibold">Guest</th>
-                  <th className="p-4 font-semibold">Room</th>
-                  <th className="p-4 font-semibold">Dates</th>
-                  <th className="p-4 font-semibold">Amount</th>
-                  <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold">Payment</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Booking ID</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Guest</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Room</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Dates</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Amount</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Status</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Payment</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredBookings.map((booking) => (
-                  <tr key={booking.id}>
-                    <td className="p-4 font-mono text-xs text-slate-400">
-                      {booking?.id ? booking.id : "N/A"}
+                  <tr key={booking.id} className="hover:bg-slate-800/50 transition-colors">
+                    <td className="p-3 sm:p-4 text-center font-mono text-xs font-semibold text-indigo-400">
+                      {booking?.id ? `#${booking.id}` : "N/A"}
                     </td>
-                    <td className="p-4">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">
                       {booking.customerFirstName} {booking.customerLastName}
                     </td>
-                    <td className="p-4">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">
                       #{booking.room?.roomNumber || "N/A"}
                     </td>
-                    <td className="p-4">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">
                       {moment(booking.startDate).format("MMM D")} -{" "}
                       {moment(booking.endDate).format("MMM D")}
                     </td>
-                    <td className="p-4">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm font-medium">
                       ${parseFloat(booking.finalPrice || 0).toFixed(2)}
                     </td>
-                    <td className="p-4">{booking.status}</td>
-                    <td className="p-4">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">{booking.status}</td>
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">
                       {booking.paymentStatus || "PENDING"}
+                    </td>
+                    <td className="p-3 sm:p-4">
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          onClick={() => {
+                            setBookingModal({
+                              isOpen: true,
+                              booking: {
+                                id: booking.id,
+                                group: booking.roomId,
+                                roomId: booking.roomId,
+                                customerFirstName: booking.customerFirstName,
+                                customerLastName: booking.customerLastName,
+                                customerEmail: booking.customerEmail,
+                                paymentType: booking.paymentType,
+                                start_time: booking.startDate,
+                                end_time: booking.endDate,
+                                checkIn: booking.startDate,
+                                checkOut: booking.endDate,
+                                dealId: booking.dealId,
+                                status: booking.status,
+                              },
+                            });
+                          }}
+                          className="px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Are you sure you want to delete booking #${booking.id}?`))
+                              return;
+                            try {
+                              await apiService.deleteBooking(booking.id);
+                              triggerRefresh();
+                              fetchData();
+                            } catch (err) {
+                              console.error("Failed to delete booking:", err);
+                              alert(`Failed to delete booking: ${err?.response?.data?.error || err?.message || "Unknown error"}`);
+                            }
+                          }}
+                          className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -247,25 +313,30 @@ function Invoices() {
       ) : (
         <div className="bg-slate-900 rounded-xl shadow-xl border border-slate-800 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[900px]">
               <thead className="bg-slate-800 text-slate-200">
                 <tr>
-                  <th className="p-4 font-semibold">Guest</th>
-                  <th className="p-4 font-semibold">Room</th>
-                  <th className="p-4 font-semibold">Type</th>
-                  <th className="p-4 font-semibold">Dates</th>
-                  <th className="p-4 font-semibold">Unused Nights</th>
-                  <th className="p-4 font-semibold">Original Price</th>
-                  <th className="p-4 font-semibold">Refund Amount</th>
-                  <th className="p-4 font-semibold">Status</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Booking ID</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Guest</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Room</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Type</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Dates</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Unused Nights</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Original Price</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Refund Amount</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Status</th>
+                  <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {refunds.map((refund) => (
-                  <tr key={refund.id}>
-                    <td className="p-4">{refund.guestName}</td>
-                    <td className="p-4">#{refund.room}</td>
-                    <td className="p-4">
+                  <tr key={refund.id} className="hover:bg-slate-800/50 transition-colors">
+                    <td className="p-3 sm:p-4 text-center font-mono text-xs font-semibold text-indigo-400">
+                      #{refund.id}
+                    </td>
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">{refund.guestName}</td>
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">#{refund.room}</td>
+                    <td className="p-3 sm:p-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         refund.type === "cancellation" 
                           ? "bg-red-500/10 text-red-400" 
@@ -274,18 +345,70 @@ function Invoices() {
                         {refund.type === "cancellation" ? "Cancellation" : "Early Check-out"}
                       </span>
                     </td>
-                    <td className="p-4">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">
                       {refund.type === "cancellation" 
                         ? `${moment(refund.createdAt).format("MMM D, YYYY")} (Cancelled)`
                         : `${refund.originalCheckout} → ${refund.actualCheckout}`
                       }
                     </td>
-                    <td className="p-4">{refund.unusedNights}</td>
-                    <td className="p-4">${refund.originalPrice.toFixed(2)}</td>
-                    <td className="p-4 font-medium text-green-400">
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">{refund.unusedNights}</td>
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">${refund.originalPrice.toFixed(2)}</td>
+                    <td className="p-3 sm:p-4 font-medium text-green-400 text-xs sm:text-sm">
                       ${refund.estimatedRefund.toFixed(2)}
                     </td>
-                    <td className="p-4">{refund.paymentStatus || "PENDING"}</td>
+                    <td className="p-3 sm:p-4 text-xs sm:text-sm">{refund.paymentStatus || "PENDING"}</td>
+                    <td className="p-3 sm:p-4">
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const booking = await apiService.getBooking(refund.id);
+                              setBookingModal({
+                                isOpen: true,
+                                booking: {
+                                  id: booking.id,
+                                  group: booking.roomId,
+                                  roomId: booking.roomId,
+                                  customerFirstName: booking.customerFirstName,
+                                  customerLastName: booking.customerLastName,
+                                  customerEmail: booking.customerEmail,
+                                  paymentType: booking.paymentType,
+                                  start_time: booking.startDate,
+                                  end_time: booking.endDate,
+                                  checkIn: booking.startDate,
+                                  checkOut: booking.endDate,
+                                  dealId: booking.dealId,
+                                  status: booking.status,
+                                },
+                              });
+                            } catch (err) {
+                              console.error("Failed to fetch booking:", err);
+                              alert(`Failed to load booking: ${err?.response?.data?.error || err?.message || "Unknown error"}`);
+                            }
+                          }}
+                          className="px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Are you sure you want to delete booking #${refund.id}?`))
+                              return;
+                            try {
+                              await apiService.deleteBooking(refund.id);
+                              triggerRefresh();
+                              fetchData();
+                            } catch (err) {
+                              console.error("Failed to delete booking:", err);
+                              alert(`Failed to delete booking: ${err?.response?.data?.error || err?.message || "Unknown error"}`);
+                            }
+                          }}
+                          className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -293,6 +416,26 @@ function Invoices() {
           </div>
         </div>
       )}
+
+      <BookingModal
+        isOpen={bookingModal.isOpen}
+        onClose={() => setBookingModal({ isOpen: false, booking: null })}
+        onSave={async (bookingData) => {
+          try {
+            if (bookingModal.booking?.id) {
+              await apiService.updateBooking(bookingModal.booking.id, bookingData);
+              triggerRefresh();
+              fetchData();
+              setBookingModal({ isOpen: false, booking: null });
+            }
+          } catch (err) {
+            console.error("Failed to update booking:", err);
+            alert(`Failed to update booking: ${err?.response?.data?.error || err?.message || "Unknown error"}`);
+          }
+        }}
+        booking={bookingModal.booking}
+        groups={rooms.map((r) => ({ id: r.id, title: `Room ${r.roomNumber}` }))}
+      />
     </div>
   );
 }

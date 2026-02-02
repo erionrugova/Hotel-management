@@ -246,11 +246,48 @@ function FrontDesk() {
     if (!window.confirm("Are you sure you want to delete this booking?"))
       return;
     try {
+      // Delete from database first
       await apiService.deleteBooking(id);
+      
+      // Update local state immediately
       setItems((prev) => prev.filter((i) => i.id !== id));
+      
+      // Trigger global refresh to update all pages (Guests, Invoices, etc.)
       triggerRefresh();
+      
+      // Force re-fetch bookings to ensure consistency
+      try {
+        const allBookings = await apiService.getBookings();
+        setItems(
+          allBookings
+            .filter((b) => b.status === "CONFIRMED" || b.status === "COMPLETED")
+            .map((b) => ({
+              id: b.id,
+              group: b.roomId,
+              title: `${b.customerFirstName || ""} ${
+                b.customerLastName || ""
+              }`.trim(),
+              start_time: moment.tz(b.startDate, "Europe/Belgrade"),
+              end_time: moment.tz(b.endDate, "Europe/Belgrade"),
+              customerFirstName: b.customerFirstName,
+              customerLastName: b.customerLastName,
+              customerEmail: b.customerEmail,
+              paymentType: b.paymentType,
+              checkIn: b.startDate,
+              checkOut: b.endDate,
+              room: b.room
+                ? { roomNumber: b.room.roomNumber, type: b.room.type }
+                : { roomNumber: "Unknown", type: "—" },
+              status: b.status,
+              paymentStatus: b.paymentStatus,
+            })),
+        );
+      } catch (fetchErr) {
+        console.warn("Failed to refresh bookings after delete:", fetchErr);
+      }
     } catch (err) {
       console.error("Failed to delete booking", err);
+      alert(`Failed to delete booking: ${err?.response?.data?.error || err?.message || "Unknown error"}`);
     }
   };
 
@@ -582,6 +619,9 @@ function FrontDesk() {
                   <thead>
                     <tr className="bg-slate-800 text-left border border-slate-700">
                       <th className="p-2 border border-slate-700 text-xs text-slate-300">
+                        Booking ID
+                      </th>
+                      <th className="p-2 border border-slate-700 text-xs text-slate-300">
                         Guest
                       </th>
                       <th className="p-2 border border-slate-700 text-xs text-slate-300">
@@ -631,6 +671,9 @@ function FrontDesk() {
                             isCheckedOut ? "opacity-70" : ""
                           }`}
                         >
+                          <td className="p-2 border border-slate-700 text-center text-xs font-mono font-semibold text-indigo-400">
+                            #{b.id}
+                          </td>
                           <td className="p-2 border border-slate-700 whitespace-nowrap text-xs text-slate-200">
                             {b.customerFirstName} {b.customerLastName}
                           </td>

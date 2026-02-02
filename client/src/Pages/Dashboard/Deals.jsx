@@ -92,11 +92,11 @@ function Deals() {
     filter === "All" ? deals : deals.filter((d) => d.status === filter);
 
   return (
-    <div className="p-10 min-h-screen bg-slate-950 text-slate-100">
-      <h2 className="text-3xl font-semibold mb-8 text-white">Deals</h2>
+    <div className="p-4 sm:p-6 lg:p-10 min-h-screen bg-slate-950 text-slate-100">
+      <h2 className="text-2xl sm:text-3xl font-semibold mb-6 sm:mb-8 text-white">Deals</h2>
 
-      <div className="flex justify-between mb-6">
-        <div className="space-x-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setFilter("ONGOING")}
             className={`px-4 py-2 rounded-lg transition-colors ${
@@ -140,8 +140,8 @@ function Deals() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl w-96 text-slate-100">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl shadow-2xl w-full max-w-md text-slate-100">
             <h3 className="text-xl font-semibold mb-4 text-white">New Deal</h3>
 
             <input
@@ -208,8 +208,8 @@ function Deals() {
       )}
 
       {editModal && editForm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-2xl w-96 text-slate-100">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl shadow-2xl w-full max-w-md text-slate-100">
             <h3 className="text-xl font-semibold mb-4 text-white">Edit Deal</h3>
 
             <input
@@ -283,29 +283,30 @@ function Deals() {
       )}
 
       <div className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-800 text-slate-200">
-            <tr>
-              <th className="p-4 font-semibold">ID</th>
-              <th className="p-4 font-semibold">Name</th>
-              <th className="p-4 font-semibold">Discount</th>
-              <th className="p-4 font-semibold">End Date</th>
-              <th className="p-4 font-semibold">Room Type</th>
-              <th className="p-4 font-semibold">Status</th>
-              {(isAdmin() || isManager()) && <th className="p-4 font-semibold">Actions</th>}
-            </tr>
-          </thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[600px]">
+            <thead className="bg-slate-800 text-slate-200">
+              <tr>
+                <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">ID</th>
+                <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Name</th>
+                <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Discount</th>
+                <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">End Date</th>
+                <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Room Type</th>
+                <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Status</th>
+                {(isAdmin() || isManager()) && <th className="p-3 sm:p-4 font-semibold text-xs sm:text-sm">Actions</th>}
+              </tr>
+            </thead>
           <tbody className="divide-y divide-slate-800">
             {filteredDeals.map((d, index) => (
               <tr key={d.id} className="hover:bg-slate-800/50 transition-colors">
-                <td className="p-4 text-slate-400">{index + 1}</td>
-                <td className="p-4 text-slate-200 font-medium">{d.name}</td>
-                <td className="p-4 text-slate-300">{d.discount}%</td>
-                <td className="p-4 text-slate-300">
+                <td className="p-3 sm:p-4 text-slate-400 text-xs sm:text-sm">{index + 1}</td>
+                <td className="p-3 sm:p-4 text-slate-200 font-medium text-xs sm:text-sm">{d.name}</td>
+                <td className="p-3 sm:p-4 text-slate-300 text-xs sm:text-sm">{d.discount}%</td>
+                <td className="p-3 sm:p-4 text-slate-300 text-xs sm:text-sm">
                   {d.endDate ? new Date(d.endDate).toLocaleDateString() : "—"}
                 </td>
-                <td className="p-4 text-slate-300">{d.roomType}</td>
-                <td className="p-4">
+                <td className="p-3 sm:p-4 text-slate-300 text-xs sm:text-sm">{d.roomType}</td>
+                <td className="p-3 sm:p-4">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
                       d.status === "ONGOING"
@@ -319,53 +320,56 @@ function Deals() {
                   </span>
                 </td>
                 {(isAdmin() || isManager()) && (
-                  <td className="p-4 space-x-2">
-                    <button
-                      onClick={() => handleEditClick(d)}
-                      className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
-                    >
-                      Edit
-                    </button>
-
-                    {d.status === "ONGOING" ? (
+                  <td className="p-3 sm:p-4">
+                    <div className="flex flex-wrap gap-1 sm:gap-2">
                       <button
-                        onClick={() =>
-                          handleUpdateDeal(d.id, { status: "INACTIVE" })
-                        }
-                        className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg text-xs font-medium transition-colors border border-amber-500/20"
+                        onClick={() => handleEditClick(d)}
+                        className="px-2 sm:px-3 py-1 sm:py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-lg text-xs font-medium transition-colors border border-indigo-500/20"
                       >
-                        Deactivate
+                        Edit
                       </button>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          handleUpdateDeal(d.id, { status: "ONGOING" })
-                        }
-                        className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium transition-colors border border-emerald-500/20"
-                      >
-                        Reactivate
-                      </button>
-                    )}
 
-                    <button
-                      onClick={() => handleDeleteDeal(d.id)}
-                      className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors border border-red-500/20"
-                    >
-                      Delete
-                    </button>
+                      {d.status === "ONGOING" ? (
+                        <button
+                          onClick={() =>
+                            handleUpdateDeal(d.id, { status: "INACTIVE" })
+                          }
+                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg text-xs font-medium transition-colors border border-amber-500/20"
+                        >
+                          Deactivate
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            handleUpdateDeal(d.id, { status: "ONGOING" })
+                          }
+                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium transition-colors border border-emerald-500/20"
+                        >
+                          Reactivate
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDeleteDeal(d.id)}
+                        className="px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors border border-red-500/20"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 )}
               </tr>
             ))}
             {filteredDeals.length === 0 && (
               <tr>
-                <td colSpan="7" className="text-center p-8 text-slate-500">
+                <td colSpan={(isAdmin() || isManager()) ? 7 : 6} className="text-center p-8 text-slate-500">
                   No deals found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

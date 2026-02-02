@@ -591,7 +591,7 @@ function ContactUs() {
                   Our concierge team is available 24/7 to assist you with any inquiries.
                 </p>
                 <motion.a
-                  href="#contact-form"
+                  href={hotelSettings.contactEmail ? `mailto:${hotelSettings.contactEmail}` : "#"}
                   className="inline-flex items-center gap-2 bg-white text-[#B89B5E] px-8 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-lg"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}

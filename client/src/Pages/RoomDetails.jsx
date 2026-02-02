@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import apiService from "../services/api";
 import { useUser } from "../UserContext";
@@ -65,6 +65,7 @@ function RoomDetails() {
   const [finalPrice, setFinalPrice] = useState(null);
   const [availabilityCount, setAvailabilityCount] = useState(null);
   const [nextAvailableDate, setNextAvailableDate] = useState(null);
+  const bookingFormRef = useRef(null);
 
   const [form, setForm] = useState({
     customerFirstName: "",
@@ -74,6 +75,14 @@ function RoomDetails() {
     startDate: "",
     endDate: "",
     dealId: "",
+  });
+
+  const [paymentDetails, setPaymentDetails] = useState({
+    cardNumber: "",
+    cardExpiry: "",
+    cardCVV: "",
+    cardName: "",
+    paypalEmail: "",
   });
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -184,6 +193,49 @@ function RoomDetails() {
     }
   };
 
+  // Format card number with spaces (e.g., "1234 5678 9012 3456")
+  const formatCardNumber = (value) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "");
+    // Limit to 16 digits
+    const limited = digits.slice(0, 16);
+    // Add space every 4 digits
+    return limited.replace(/(\d{4})(?=\d)/g, "$1 ");
+  };
+
+  // Format expiry date with automatic "/" (e.g., "12/25")
+  const formatExpiry = (value) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "");
+    // Limit to 4 digits
+    const limited = digits.slice(0, 4);
+    // Add "/" after 2 digits
+    if (limited.length >= 2) {
+      return limited.slice(0, 2) + "/" + limited.slice(2);
+    }
+    return limited;
+  };
+
+  const handlePaymentChange = (e) => {
+    const { name, value } = e.target;
+    let formattedValue = value;
+
+    // Format card number
+    if (name === "cardNumber") {
+      formattedValue = formatCardNumber(value);
+    }
+    // Format expiry date
+    else if (name === "cardExpiry") {
+      formattedValue = formatExpiry(value);
+    }
+    // Only allow digits for CVV
+    else if (name === "cardCVV") {
+      formattedValue = value.replace(/\D/g, "").slice(0, 4);
+    }
+
+    setPaymentDetails((prev) => ({ ...prev, [name]: formattedValue }));
+  };
+
   const handleDealChange = (e) => {
     const dealId = e.target.value;
     setSelectedDeal(dealId || null);
@@ -195,6 +247,46 @@ function RoomDetails() {
   const submitBooking = async (e) => {
     e.preventDefault();
     setMsg({ type: "", text: "" });
+
+    // Validate dates
+    if (form.startDate && form.endDate) {
+      const start = new Date(form.startDate);
+      const end = new Date(form.endDate);
+      if (end <= start) {
+        setMsg({ type: "error", text: "Check-out date must be after check-in date." });
+        return;
+      }
+    }
+
+    // Validate payment details if card or paypal
+    if (form.paymentType === "CARD") {
+      if (!paymentDetails.cardNumber || !paymentDetails.cardExpiry || !paymentDetails.cardCVV || !paymentDetails.cardName) {
+        setMsg({ type: "error", text: "Please fill in all card payment details." });
+        return;
+      }
+      // Basic card number validation (should be exactly 16 digits)
+      const cardNumberDigits = paymentDetails.cardNumber.replace(/\s/g, "");
+      if (cardNumberDigits.length !== 16 || !/^\d{16}$/.test(cardNumberDigits)) {
+        setMsg({ type: "error", text: "Please enter a valid 16-digit card number." });
+        return;
+      }
+      // Basic expiry validation (MM/YY format)
+      if (!/^\d{2}\/\d{2}$/.test(paymentDetails.cardExpiry)) {
+        setMsg({ type: "error", text: "Please enter expiry date in MM/YY format." });
+        return;
+      }
+      // CVV validation (3-4 digits)
+      if (!/^\d{3,4}$/.test(paymentDetails.cardCVV)) {
+        setMsg({ type: "error", text: "Please enter a valid CVV (3-4 digits)." });
+        return;
+      }
+    } else if (form.paymentType === "PAYPAL") {
+      if (!paymentDetails.paypalEmail || !/\S+@\S+\.\S+/.test(paymentDetails.paypalEmail)) {
+        setMsg({ type: "error", text: "Please enter a valid PayPal email address." });
+        return;
+      }
+    }
+
     try {
       await apiService.createBooking({
         roomId: Number(id),
@@ -204,20 +296,36 @@ function RoomDetails() {
       });
 
       setMsg({ type: "success", text: "Booking successful!" });
-      setShowForm(false);
-      setForm({
-        customerFirstName: "",
-        customerLastName: "",
-        customerEmail: "",
-        paymentType: "",
-        startDate: "",
-        endDate: "",
-        dealId: "",
-      });
-      setSelectedDeal(null);
-      setFinalPrice(null);
-      setAvailabilityCount(null);
-      setNextAvailableDate(null);
+      
+      // Scroll to the booking form to show success message
+      if (bookingFormRef.current) {
+        bookingFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      
+      // Reset form after a delay to show success message
+      setTimeout(() => {
+        setShowForm(false);
+        setForm({
+          customerFirstName: "",
+          customerLastName: "",
+          customerEmail: "",
+          paymentType: "",
+          startDate: "",
+          endDate: "",
+          dealId: "",
+        });
+        setPaymentDetails({
+          cardNumber: "",
+          cardExpiry: "",
+          cardCVV: "",
+          cardName: "",
+          paypalEmail: "",
+        });
+        setSelectedDeal(null);
+        setFinalPrice(null);
+        setAvailabilityCount(null);
+        setNextAvailableDate(null);
+      }, 3000);
     } catch (err) {
       console.error("❌ Booking error:", err);
       const nextAvail = err?.response?.data?.nextAvailable;
@@ -412,6 +520,7 @@ function RoomDetails() {
                 </motion.button>
               ) : (
                 <motion.form
+                  ref={bookingFormRef}
                   onSubmit={submitBooking}
                   initial={{ opacity: 0, y: 40 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -449,24 +558,31 @@ function RoomDetails() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={form.startDate}
-                      min={todayISO}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={form.endDate}
-                      min={form.startDate || todayISO}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
+                    <div>
+                      <input
+                        type="date"
+                        name="startDate"
+                        value={form.startDate}
+                        min={todayISO}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="date"
+                        name="endDate"
+                        value={form.endDate}
+                        min={form.startDate || todayISO}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                      {form.startDate && form.endDate && new Date(form.endDate) <= new Date(form.startDate) && (
+                        <p className="text-red-600 text-sm mt-1">Check-out must be after check-in date</p>
+                      )}
+                    </div>
                   </div>
                   <select
                     name="paymentType"
@@ -480,6 +596,87 @@ function RoomDetails() {
                     <option value="CASH">Cash</option>
                     <option value="PAYPAL">PayPal</option>
                   </select>
+
+                  {/* Payment Form - Card */}
+                  <AnimatePresence>
+                    {form.paymentType === "CARD" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200"
+                      >
+                        <h4 className="font-semibold text-gray-700 mb-3">Card Payment Details</h4>
+                        <input
+                          type="text"
+                          name="cardName"
+                          placeholder="Name on Card"
+                          value={paymentDetails.cardName}
+                          onChange={handlePaymentChange}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                        <input
+                          type="text"
+                          name="cardNumber"
+                          placeholder="1234 5678 9012 3456"
+                          value={paymentDetails.cardNumber}
+                          onChange={handlePaymentChange}
+                          maxLength="19"
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            name="cardExpiry"
+                            placeholder="MM/YY"
+                            value={paymentDetails.cardExpiry}
+                            onChange={handlePaymentChange}
+                            maxLength="5"
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          />
+                          <input
+                            type="text"
+                            name="cardCVV"
+                            placeholder="CVV"
+                            value={paymentDetails.cardCVV}
+                            onChange={handlePaymentChange}
+                            maxLength="4"
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Payment Form - PayPal */}
+                  <AnimatePresence>
+                    {form.paymentType === "PAYPAL" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200"
+                      >
+                        <h4 className="font-semibold text-gray-700 mb-3">PayPal Payment Details</h4>
+                        <input
+                          type="email"
+                          name="paypalEmail"
+                          placeholder="PayPal Email Address"
+                          value={paymentDetails.paypalEmail}
+                          onChange={handlePaymentChange}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <select
                     name="dealId"
                     value={selectedDeal || ""}
