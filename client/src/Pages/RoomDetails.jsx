@@ -357,7 +357,7 @@ function RoomDetails() {
 
   const getImageUrl = (imgPath, type) => {
     if (imgPath?.startsWith("/uploads")) {
-      return `http://localhost:3000${imgPath}`;
+      return `http://localhost:3002${imgPath}`;
     }
     return imgPath || getFallback(type);
   };

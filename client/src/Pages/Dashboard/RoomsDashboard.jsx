@@ -130,7 +130,7 @@ function RoomsDashboard() {
   const getImage = (roomType) => {
     const match = allRooms.find((r) => r.type === roomType);
     if (match?.imageUrl?.startsWith("/uploads")) {
-      return `http://localhost:3000${match.imageUrl}`;
+      return `http://localhost:3002${match.imageUrl}`;
     }
     return match?.imageUrl || fallbackByType[roomType] || photo1;
   };

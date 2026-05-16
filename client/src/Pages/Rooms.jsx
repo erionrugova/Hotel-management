@@ -118,7 +118,7 @@ function Rooms() {
   const getRoomImage = useCallback((room) => {
     // First, try to get image from the room itself (but exclude default.jpg)
     if (isValidUploadedImage(room?.imageUrl)) {
-      return `http://localhost:3000${room.imageUrl}`;
+      return `http://localhost:3002${room.imageUrl}`;
     }
     
     // If room doesn't have uploaded image, look for any room of the same type with uploaded image
@@ -127,7 +127,7 @@ function Rooms() {
         (r) => r.type === room.type && isValidUploadedImage(r?.imageUrl)
       );
       if (roomWithImage?.imageUrl) {
-        return `http://localhost:3000${roomWithImage.imageUrl}`;
+        return `http://localhost:3002${roomWithImage.imageUrl}`;
       }
     }
     

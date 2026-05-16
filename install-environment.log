@@ -1,0 +1,38 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260514235539
+Username: MILOT-ALIU-GAMI\milot
+RunAs User: MILOT-ALIU-GAMI\milot
+Configuration Name: 
+Machine: MILOT-ALIU-GAMI (Microsoft Windows NT 10.0.26100.0)
+Host Application: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.ps1
+Process ID: 19336
+PSVersion: 5.1.26100.7462
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7462
+BuildVersion: 10.0.26100.7462
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.log
+[2026-05-14 23:55:39] Starting environment setup...
+PS>TerminatingError(Add-Content): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: The process cannot access the file 'C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.log' because it is being used by another process."
+>> TerminatingError(Add-Content): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: The process cannot access the file 'C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.log' because it is being used by another process."
+>> TerminatingError(Add-Content): "The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: The process cannot access the file 'C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.log' because it is being used by another process."
+The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: The process cannot access the file 'C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.log' because it is being used by another process.
+Add-Content : The process cannot access the file
+'C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.log' because it is being used
+by another process.
+At C:\Users\milot\OneDrive\Desktop\eljesaaz\Hotel-management\install-environment.ps1:11 char:5
++     Add-Content -Path $logPath -Value $line
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (C:\Users\milot\...environment.log:String) [Add-Content], IOExcept
+   ion
+    + FullyQualifiedErrorId : GetContentWriterIOError,Microsoft.PowerShell.Commands.AddContentCommand
+
+**********************
+Windows PowerShell transcript end
+End time: 20260514235539
+**********************
