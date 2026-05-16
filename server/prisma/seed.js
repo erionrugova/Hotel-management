@@ -179,7 +179,6 @@ async function createRates() {
         policy,
         rate: basePrice,
         dealPrice: basePrice * 0.9,
-        availability: 3,
       },
     });
   }

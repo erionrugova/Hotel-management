@@ -117,7 +117,7 @@ model Booking {
 
 model RoomFeature {
   id        Int               @id @default(autoincrement())
-  name      String            @db.VarChar(100)
+  name      String            @unique @db.VarChar(100)
   rooms     RoomFeatureMap[]
   roomTypes RoomTypeFeature[]
 
@@ -142,6 +142,7 @@ model RoomTypeFeature {
   featureId Int
   feature   RoomFeature @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "room_type_features_ibfk_1")
 
+  @@unique([roomType, featureId], map: "unique_roomtype_feature")
   @@index([featureId], map: "featureId")
   @@map("room_type_features")
 }
@@ -179,6 +180,7 @@ model Rate {
   room Room  @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   deal Deal? @relation(fields: [dealId], references: [id], onDelete: SetNull) 
 
+  @@unique([roomId, policy], map: "unique_room_policy")
   @@index([roomId], map: "Rate_roomId_fkey")
   @@index([dealId], map: "Rate_dealId_fkey")
 }
