@@ -301,3 +301,29 @@ model HotelSettings {
 
   @@map("hotel_settings")
 }
+model Shkolla {
+  id        Int       @id @default(autoincrement())
+  emri      String    @db.VarChar(191)
+  qyteti    String    @db.VarChar(191)
+  nxenesit  Nxenesi[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([emri])
+  @@index([qyteti])
+  @@map("shkollat")
+}
+
+model Nxenesi {
+  id            Int      @id @default(autoincrement())
+  emriNxenesit String   @db.VarChar(191)
+  klasa         String   @db.VarChar(50)
+  shkollaId     Int
+  shkolla       Shkolla  @relation(fields: [shkollaId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([shkollaId])
+  @@index([emriNxenesit])
+  @@map("nxenesit")
+}

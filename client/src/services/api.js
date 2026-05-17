@@ -472,6 +472,57 @@ class ApiService {
   deleteMessage(id) {
     return this.request(`/contact/${id}`, { method: "DELETE" });
   }
+  // schools
+  getSchools() {
+    return this.request("/schools");
+  }
+
+  getSchool(id) {
+    return this.request(`/schools/${id}`);
+  }
+
+  createSchool(data) {
+    return this.request("/schools", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateSchool(id, data) {
+    return this.request(`/schools/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteSchool(id) {
+    return this.request(`/schools/${id}`, { method: "DELETE" });
+  }
+
+  // students
+  getStudents(schoolId = "") {
+    const query = schoolId ? `?schoolId=${schoolId}` : "";
+    return this.request(`/students${query}`);
+  }
+
+  createStudent(data) {
+    return this.request("/students", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  updateStudent(id, data) {
+    return this.request(`/students/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  deleteStudent(id) {
+    return this.request(`/students/${id}`, { method: "DELETE" });
+  }
+
 }
 
 export default new ApiService();

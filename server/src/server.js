@@ -52,6 +52,8 @@ import dealRoutes from "./routes/dealRoutes.js";
 import guestRoutes from "./routes/guestRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
+import schoolRoutes from "./routes/schoolRoutes.js";
+import studentRoutes from "./routes/studentRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
@@ -207,6 +209,8 @@ app.use("/api/deals", dealRoutes);
 app.use("/api/guests", guestRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/schools", schoolRoutes);
+app.use("/api/students", studentRoutes);
 
 app.get("/api/health", (req, res) =>
   res.json({

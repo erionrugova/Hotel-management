@@ -32,6 +32,8 @@ const Deals = lazy(() => import("./Pages/Dashboard/Deals"));
 const Rate = lazy(() => import("./Pages/Dashboard/Rate"));
 const Invoices = lazy(() => import("./Pages/Dashboard/Refunds"));
 const Settings = lazy(() => import("./Pages/Dashboard/Settings"));
+// qikjo variabel eshte elementi, dmth qitu e deklaru qe qikjo ka me u perdor ma poshte qe me u redirect te qikjo
+const ShkollaNxenesi = lazy(() => import("./Pages/Dashboard/ShkollaNxenesi"));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -102,6 +104,8 @@ function AppRoutes() {
           <Route path="rates" element={<Rate />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="settings" element={<Settings />} />
+          {/* Qitu eshte route se ne cilin url ka me u hap qikjo klasa ShkollaNxenesi.jsx */}
+          <Route path="shkolla-nxenesi" element={<ShkollaNxenesi />} />
         </Route>
       </Routes>
     </Suspense>

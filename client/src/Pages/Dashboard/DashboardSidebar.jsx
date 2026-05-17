@@ -30,6 +30,8 @@ function DashboardSidebar({ isOpen, onClose }) {
     { name: "Rates", path: "/dashboard/rates", icon: <DollarSign size={18} /> },
     { name: "Invoices", path: "/dashboard/invoices", icon: <Receipt size={18} /> },
     { name: "Settings", path: "/dashboard/settings", icon: <Settings size={18} /> },
+    /* Qitu eshte pjesa anash qe nese bahet click ne cilin path ka me te redirect */
+    { name: "Shkolla & Nxenes", path: "/dashboard/shkolla-nxenesi", icon: <Settings size={18} /> },
   ];
 
   return (
